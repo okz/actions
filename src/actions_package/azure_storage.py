@@ -27,7 +27,16 @@ class AzuriteStorageClient:
                 "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
             )
         
-        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        # Create the client with a specific API version that's compatible with Azurite
+        try:
+            self.blob_service_client = BlobServiceClient.from_connection_string(
+                connection_string, 
+                api_version='2020-10-02'  # Use an older API version compatible with Azurite
+            )
+        except Exception:
+            # Fallback to default API version if the specific one fails
+            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        
         self.container_name = "test-container"
     
     def create_container(self) -> bool:
