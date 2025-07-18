@@ -10,6 +10,9 @@ A basic skeleton Python 3.12 package with pytest support, GitHub Actions CI/CD, 
 - GitHub Actions CI/CD pipeline
 - Hello world functionality as an example
 - Comprehensive test coverage
+- **🔧 Complete development environment documentation**
+- **🐳 Containerized development support**
+- **🤖 AI coding agent optimized**
 
 ## Installation
 
@@ -84,6 +87,39 @@ actions/
 └── README.md
 ```
 
+## Development Environment
+
+For AI coding agents and developers, this repository provides comprehensive environment documentation:
+
+- **📋 [DEVELOPMENT.md](DEVELOPMENT.md)** - Complete development guide with build details
+- **🤖 [AI_ENVIRONMENT.md](AI_ENVIRONMENT.md)** - Quick reference for AI coding agents
+- **🐳 [Dockerfile](Dockerfile)** - Reproducible container environment
+- **⚙️ [dev-setup.sh](dev-setup.sh)** - Automated development setup script
+
+### Quick Setup
+
+```bash
+# Automated setup
+./dev-setup.sh
+
+# OR manual setup
+pip install -e ".[dev]"
+pytest
+```
+
+### Container Development
+
+```bash
+# Using Docker Compose
+docker-compose up dev    # Interactive development
+docker-compose up test   # Run tests
+docker-compose up lint   # Run linting
+
+# Using Docker directly
+docker build -t actions-package-dev .
+docker run -it -v $(pwd):/app actions-package-dev /bin/bash
+```
+
 ## Contributing
 
 1. Fork the repository
@@ -92,6 +128,8 @@ actions/
 4. Add tests for new functionality
 5. Run the test suite
 6. Submit a pull request
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development guidelines.
 
 ## License
 
