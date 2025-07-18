@@ -15,7 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = []
+dependencies = [
+    "azure-storage-blob>=12.19.0,<12.25.0",
+]
 
 [project.optional-dependencies]
 dev = [

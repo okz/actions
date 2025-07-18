@@ -20,6 +20,23 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     
+    # Service containers to run with `test`
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite:latest
+        ports:
+          - 10000:10000
+          - 10001:10001
+          - 10002:10002
+        options: >-
+          --health-cmd "curl -f http://localhost:10000/devstoreaccount1/test || exit 0"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          --entrypoint "sh"
+        # Run Azurite with skipApiVersionCheck flag
+        cmd: ["-c", "azurite --skipApiVersionCheck --silent"]
+    
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -40,6 +57,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+
+      # Wait for Azurite to be ready
+      - name: Wait for Azurite
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:10000/devstoreaccount1; do sleep 2; done'
 
       # Run linting (optional but good practice)
       - name: Lint with ruff (if available)
