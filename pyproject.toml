@@ -17,6 +17,10 @@ classifiers = [
 ]
 dependencies = [
     "azure-storage-blob>=12.19.0,<12.25.0",
+    "xarray>=2024.1.0",
+    "zarr>=3.0.0",
+    "icechunk>=1.0.0",
+    "netCDF4>=1.5.0",
 ]
 
 [project.optional-dependencies]
