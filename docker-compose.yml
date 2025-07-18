@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/venv  # Prevent overwriting container's virtual environment
+    working_dir: /app
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    environment:
+      - PYTHONPATH=/app/src
+    
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/venv
+    working_dir: /app
+    command: pytest --cov=actions_package --cov-report=term-missing -v
+    
+  lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/venv
+    working_dir: /app
+    command: ruff check src/ tests/
+
+# Usage:
+# docker-compose up dev    # Start development container
+# docker-compose up test   # Run tests
+# docker-compose up lint   # Run linting
