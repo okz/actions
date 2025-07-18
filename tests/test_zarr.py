@@ -142,7 +142,7 @@ def test_save_and_load_zarr_group():
         assert loaded_group is not None
         
         # Check that loaded group has same structure
-        assert list(loaded_group.array_keys()) == list(group.array_keys())
+        assert sorted(list(loaded_group.array_keys())) == sorted(list(group.array_keys()))
         assert dict(loaded_group.attrs) == dict(group.attrs)
         
         # Check individual arrays
