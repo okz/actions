@@ -41,6 +41,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      # Start Azurite for testing
+      - name: Start Azurite
+        run: |
+          # Install netcat for port checking
+          sudo apt-get update && sudo apt-get install -y netcat-openbsd
+          
+          # Pull and start Azurite in background
+          docker run -d --name azurite \
+            -p 10000:10000 \
+            -p 10001:10001 \
+            -p 10002:10002 \
+            mcr.microsoft.com/azure-storage/azurite:latest \
+            azurite --skipApiVersionCheck --silent
+          
+          # Wait for Azurite to be ready
+          echo "Waiting for Azurite to start..."
+          timeout 60 bash -c 'until nc -z localhost 10000; do sleep 2; done' || echo "Azurite may not be ready, but continuing with tests"
+          echo "Azurite is ready"
+
       # Run linting (optional but good practice)
       - name: Lint with ruff (if available)
         run: |
