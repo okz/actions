@@ -35,7 +35,16 @@ services:
     working_dir: /app
     command: ruff check src/ tests/
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite --silent
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+
 # Usage:
 # docker-compose up dev    # Start development container
 # docker-compose up test   # Run tests
 # docker-compose up lint   # Run linting
+# docker-compose up -d azurite  # Start Azurite emulator
