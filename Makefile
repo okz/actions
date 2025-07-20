@@ -13,6 +13,11 @@ install: ## Install package in production mode
 install-dev: ## Install package in development mode with dev dependencies
 	pip install -e ".[dev]"
 
+setup: ## Full development setup (create venv, install deps)
+	python3 -m venv .venv
+	@echo "Virtual environment created. Activate with: source .venv/bin/activate"
+	@echo "Then run: make install-dev"
+
 test: ## Run tests
 	pytest
 
@@ -21,6 +26,16 @@ test-cov: ## Run tests with coverage report
 
 lint: ## Run linting with ruff
 	ruff check src/ tests/
+
+format: ## Format code with black and ruff
+	black src/ tests/
+	ruff check --fix src/ tests/
+
+tox: ## Run all tox environments
+	tox
+
+tox-py: ## Run tox for current Python version only  
+	tox -e py
 
 build: ## Build package distributions
 	python -m build

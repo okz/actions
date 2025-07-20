@@ -15,23 +15,150 @@ A basic skeleton Python 3.12 package with pytest support, GitHub Actions CI/CD, 
 - **🐳 Containerized development support**
 - **🤖 AI coding agent optimized**
 
-## Installation
+## Development Setup
 
-### Development Installation
+### Prerequisites
+
+- Python 3.8+ (Python 3.12+ recommended)
+- Git
+
+### Quick Start
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/okz/actions.git
+   cd actions
+   ```
+
+2. **Create and activate a virtual environment**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install the package in development mode**
+   ```bash
+   pip install -e .[dev]
+   ```
+
+4. **Verify the installation**
+   ```bash
+   python -c "from actions_package import hello_world; print(hello_world())"
+   pytest tests/ -v
+   ```
+
+### Alternative Setup with Tox
+
+For testing across multiple Python versions:
 
 ```bash
-# Clone the repository
+# Install tox
+pip install tox
+
+# Run tests across all configured environments
+tox
+
+# Run tests for specific Python version
+tox -e py312
+
+# Run linting only
+tox -e lint
+```
+
+### Available Make Commands
+
+```bash
+make install     # Install package in development mode
+make test        # Run tests with pytest
+make test-cov    # Run tests with coverage
+make lint        # Run code linting with ruff
+make format      # Format code with black
+make clean       # Clean build artifacts
+make tox         # Run all tox environments
+```
+
+## Installation
+
+### Development Installation (Recommended)
+
+If you're planning to contribute or modify the code:
+
+```bash
+# Clone and setup development environment
 git clone https://github.com/okz/actions.git
 cd actions
-
-# Install in development mode with test dependencies
-pip install -e ".[dev]"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
 ```
 
 ### Production Installation
 
+For using the package in your projects:
+
 ```bash
 pip install actions-package
+```
+
+## Troubleshooting
+
+### Common Setup Issues
+
+#### Import Error: `ModuleNotFoundError: No module named 'actions_package'`
+
+This usually means the package wasn't installed in development mode. Make sure you run:
+
+```bash
+pip install -e .[dev]
+```
+
+#### Missing Dependencies in Tests
+
+If tests fail due to missing packages like `numpy`, ensure you installed with dev dependencies:
+
+```bash
+pip install -e .[dev]
+```
+
+#### Python Version Compatibility
+
+The package requires Python 3.8+. Check your Python version:
+
+```bash
+python --version
+```
+
+If you have multiple Python versions, ensure you're using the correct one:
+
+```bash
+python3.12 -m venv .venv  # Use specific Python version
+```
+
+#### Virtual Environment Issues
+
+If you're having issues with your virtual environment:
+
+```bash
+# Remove existing environment
+rm -rf .venv
+
+# Create fresh environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .[dev]
+```
+
+#### Running Tests
+
+If tests aren't being discovered:
+
+```bash
+# Run from project root
+pytest tests/ -v
+
+# Or run specific test file
+pytest tests/test_hello.py -v
 ```
 
 ## Usage
@@ -89,11 +216,7 @@ This project includes Azure Storage functionality that can be tested using the A
 1. **Using Docker (Recommended)**:
    ```bash
    # Pull and run Azurite container
-   docker run -d --name azurite \
-     -p 10000:10000 \
-     -p 10001:10001 \
-     -p 10002:10002 \
-     mcr.microsoft.com/azure-storage/azurite:latest
+   docker run -d --name azurite -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite:latest
    ```
 
 2. **Using npm**:

@@ -208,3 +208,5 @@ __marimo__/
 
 # Test scripts
 test_azurite_manual.py
+
+.vscode/

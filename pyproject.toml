@@ -27,7 +27,12 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",  # For parallel test execution
     "ruff>=0.1",
+    "black>=23.0",  # Code formatting
+    "mypy>=1.0",    # Type checking
+    "numpy>=1.24.0",  # Required by tests
+    "tox>=4.0",     # Testing across environments
 ]
 
 [tool.setuptools.packages.find]
