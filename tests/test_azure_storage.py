@@ -4,13 +4,20 @@ Tests for Azure Storage operations using Azurite emulator.
 
 import pytest
 from actions_package.azure_storage import AzuriteStorageClient
+import socket
 
 
-def is_azurite_available():
-    """Check if Azurite is available for testing."""
+def is_azurite_available() -> bool:
+    """Check if Azurite is running and reachable."""
+    # Quickly probe the default Azurite blob port with a short timeout
+    try:
+        with socket.create_connection(("127.0.0.1", 10000), timeout=1):
+            pass
+    except OSError:
+        return False
+
     try:
         client = AzuriteStorageClient()
-        # Try to create a container as a quick test
         return client.create_container()
     except Exception:
         return False
@@ -20,7 +27,7 @@ def is_azurite_available():
 def azurite_client():
     """Create an AzuriteStorageClient for testing."""
     if not is_azurite_available():
-        pytest.skip("Azurite is not available for testing")
+        pytest.fail("Azurite is not available for testing", pytrace=False)
     
     client = AzuriteStorageClient()
     # Ensure container exists
@@ -38,13 +45,11 @@ def azurite_client():
 class TestAzuriteStorageClient:
     """Test cases for AzuriteStorageClient CRUD operations."""
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_create_container(self, azurite_client):
         """Test container creation."""
         result = azurite_client.create_container()
         assert result is True
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_upload_blob(self, azurite_client):
         """Test uploading a blob."""
         blob_name = "test-blob.txt"
@@ -56,7 +61,6 @@ class TestAzuriteStorageClient:
         # Verify blob exists
         assert azurite_client.blob_exists(blob_name) is True
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_download_blob(self, azurite_client):
         """Test downloading a blob."""
         blob_name = "test-download.txt"
@@ -69,7 +73,6 @@ class TestAzuriteStorageClient:
         downloaded_data = azurite_client.download_blob(blob_name)
         assert downloaded_data == test_data
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_list_blobs(self, azurite_client):
         """Test listing blobs in container."""
         blob_names = ["blob1.txt", "blob2.txt", "blob3.txt"]
@@ -85,7 +88,6 @@ class TestAzuriteStorageClient:
         for blob_name in blob_names:
             assert blob_name in listed_blobs
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_delete_blob(self, azurite_client):
         """Test deleting a blob."""
         blob_name = "test-delete.txt"
@@ -102,7 +104,6 @@ class TestAzuriteStorageClient:
         # Verify blob no longer exists
         assert azurite_client.blob_exists(blob_name) is False
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_blob_exists(self, azurite_client):
         """Test checking if a blob exists."""
         blob_name = "existence-test.txt"
@@ -116,7 +117,6 @@ class TestAzuriteStorageClient:
         # Now should exist
         assert azurite_client.blob_exists(blob_name) is True
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_upload_overwrite(self, azurite_client):
         """Test uploading with overwrite."""
         blob_name = "overwrite-test.txt"
@@ -133,20 +133,17 @@ class TestAzuriteStorageClient:
         downloaded = azurite_client.download_blob(blob_name)
         assert downloaded == new_content
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_download_nonexistent_blob(self, azurite_client):
         """Test downloading a blob that doesn't exist."""
         result = azurite_client.download_blob("nonexistent-blob.txt")
         assert result is None
     
-    @pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
     def test_delete_nonexistent_blob(self, azurite_client):
         """Test deleting a blob that doesn't exist."""
         result = azurite_client.delete_blob("nonexistent-blob.txt")
         assert result is False
 
 
-@pytest.mark.skipif(not is_azurite_available(), reason="Azurite not available")
 @pytest.mark.parametrize("blob_name,content", [
     ("test1.txt", "Content 1"),
     ("test2.json", '{"key": "value"}'),
