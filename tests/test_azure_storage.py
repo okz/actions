@@ -3,7 +3,6 @@ Tests for Azure Storage operations using Azurite emulator.
 """
 
 import pytest
-import time
 from actions_package.azure_storage import AzuriteStorageClient
 
 
