@@ -232,6 +232,11 @@ This project includes Azure Storage functionality that can be tested using the A
 
 Once Azurite is running, you can test the Azure Storage functionality:
 
+> **Note**: When running `pytest` locally, a lightweight Azurite instance will
+> be started automatically using `npx azurite` if nothing is already listening on
+> port `10000`. This allows the storage tests to run out of the box without any
+> additional setup.
+
 ```bash
 # Run Azure Storage tests
 pytest tests/test_azure_storage.py -v

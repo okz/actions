@@ -112,7 +112,8 @@ def test_load_nonexistent_netcdf():
 def test_save_to_invalid_path():
     """Test saving to invalid path."""
     ds = create_sample_dataset()
-    result = save_dataset_to_netcdf(ds, "/invalid/path/file.nc")
+    # Use a read-only system path so the save operation fails regardless of permissions
+    result = save_dataset_to_netcdf(ds, "/proc/invalid/path/file.nc")
     assert result is False
 
 
