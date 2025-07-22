@@ -57,13 +57,14 @@ class AzuriteStorageClient:
             print(f"Error creating container: {e}")
             return False
     
-    def upload_blob(self, blob_name: str, data: str) -> bool:
+    def upload_blob(self, blob_name: str, data, is_binary: bool = False) -> bool:
         """
         Upload a blob to the container.
         
         Args:
             blob_name: Name of the blob
-            data: String data to upload
+            data: String or bytes data to upload
+            is_binary: Whether the data is binary (bytes) or text (str)
             
         Returns:
             True if upload was successful, False otherwise.
@@ -73,7 +74,11 @@ class AzuriteStorageClient:
                 container=self.container_name, 
                 blob=blob_name
             )
-            blob_client.upload_blob(data, overwrite=True)
+            if is_binary and isinstance(data, bytes):
+                blob_client.upload_blob(data, overwrite=True)
+            else:
+                # Ensure data is string for text uploads
+                blob_client.upload_blob(str(data), overwrite=True)
             return True
         except Exception as e:
             print(f"Error uploading blob: {e}")
