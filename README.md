@@ -204,7 +204,7 @@ pytest --cov=actions_package
 pytest -v
 
 # Run only Azure Storage tests (requires Azurite)
-pytest tests/test_azure_storage.py -v
+pytest tests/test_azurite_service.py -v
 ```
 
 ### Testing with Azurite
@@ -239,7 +239,7 @@ Once Azurite is running, you can test the Azure Storage functionality:
 
 ```bash
 # Run Azure Storage tests
-pytest tests/test_azure_storage.py -v
+pytest tests/test_azurite_service.py -v
 
 # Run all tests including Azure Storage
 pytest --cov=actions_package --cov-report=term-missing -v
