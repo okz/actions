@@ -167,7 +167,8 @@ def test_load_nonexistent_zarr():
 def test_save_to_invalid_path():
     """Test saving to invalid path."""
     z = create_sample_zarr_array()
-    result = save_zarr_to_directory(z, "/invalid/path")
+    # Use a read-only system path to ensure the operation fails regardless of permissions
+    result = save_zarr_to_directory(z, "/proc/invalid/path")
     assert result is False
 
 
