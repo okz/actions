@@ -1,4 +1,5 @@
 import subprocess
+import os
 import shutil
 import socket
 import time
@@ -45,6 +46,25 @@ def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
     session.config.azurite_process = process
     if process is None:
         print("Warning: Azurite could not be started. Tests may fail.")
+
+
+@pytest.fixture(autouse=True)
+def azurite_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provide default Azurite credentials via environment variables."""
+    connection = (
+        "DefaultEndpointsProtocol=http;"
+        "AccountName=devstoreaccount1;"
+        "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
+        "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+    )
+
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", connection)
+    monkeypatch.setenv("AZURE_STORAGE_ACCOUNT_NAME", "devstoreaccount1")
+    monkeypatch.setenv(
+        "AZURE_STORAGE_ACCOUNT_KEY",
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
+    )
+    monkeypatch.setenv("AZURITE_BLOB_STORAGE_URL", "http://127.0.0.1:10000")
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: D401
