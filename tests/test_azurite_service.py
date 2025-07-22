@@ -34,3 +34,13 @@ def test_azure_fsspec():
         file_handle.write(b"foo") # ok
 
     assert len(fs.ls("test-container")) == 1
+
+
+def test_azure_icechunk():
+    """ Use icechunk to write a file to azure storage, emulated by Azurite"""
+
+    import icechunk
+
+    storage = icechunk.azure_storage(container="my-container", prefix="my-prefix", from_env=True)
+    repo = icechunk.Repository.create(storage)
+
