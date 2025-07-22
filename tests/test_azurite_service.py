@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import xarray as xr
 import zarr
@@ -40,7 +41,23 @@ def test_azure_icechunk():
     """ Use icechunk to write a file to azure storage, emulated by Azurite"""
 
     import icechunk
+    client = AzuriteStorageClient()
+    client.container_name = "my-container"
+    try:
+        client.blob_service_client.delete_container(client.container_name)
+    except Exception:
+        pass
+    client.create_container()
 
-    storage = icechunk.azure_storage(container="my-container", prefix="my-prefix", from_env=True)
+    storage = icechunk.azure_storage(
+        account=os.environ["AZURE_STORAGE_ACCOUNT_NAME"],
+        container="my-container",
+        prefix="my-prefix",
+        from_env=True,
+        config={
+            "azure_storage_use_emulator": "true",
+            "azure_allow_http": "true",
+        },
+    )
     repo = icechunk.Repository.create(storage)
 
