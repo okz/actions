@@ -304,6 +304,7 @@ actions/
 For AI coding agents and developers, this repository provides comprehensive environment documentation:
 
 - **📋 [DEVELOPMENT.md](DEVELOPMENT.md)** - Complete development guide with build details
+- **📑 [AGENTS.md](AGENTS.md)** - Instructions for Codex and GitHub's coding agent
 - **🤖 [AI_ENVIRONMENT.md](AI_ENVIRONMENT.md)** - Quick reference for AI coding agents
 - **🐳 [Dockerfile](Dockerfile)** - Reproducible container environment
 - **⚙️ [dev-setup.sh](dev-setup.sh)** - Automated development setup script
