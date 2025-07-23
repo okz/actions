@@ -1,7 +1,4 @@
 import os
-import numpy as np
-import xarray as xr
-import zarr
 import fsspec
 from actions_package.azure_storage import AzuriteStorageClient
 
@@ -60,4 +57,7 @@ def test_azure_icechunk():
         },
     )
     repo = icechunk.Repository.create(storage)
+    
+    # Verify repository was created successfully
+    assert repo is not None
 
