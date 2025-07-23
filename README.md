@@ -347,3 +347,42 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development guidelines.
 ## License
 
 MIT License - see LICENSE file for details.
+
+
+
+# TODO
+
+[ ] **Setup Azurite dev stack** – Docker Compose file & README for local emulator. 
+[ ] **Setup Codex and Copilot coding agents** capable emulating azurite/CI/testing etc. 
+[ ] **Repo scaffolding with pip, venv folder structure ** – create `src/`, `tests/`, `docs/`
+[ ] **Mocked data creator** Generate large files with a small seeded data amount. 
+[ ] Icechunk features: 
+
+[ ] **Multi-dimensional append tests** – verify appends along first and second axes  
+[ ] **File-size sanity checks** – assert on-disk chunk sizes stay within budget  
+[ ] **Upload integrity validation** – compare local vs. remote hashes after push  
+[ ] **Weekly read benchmark** – open one week of data and measure latency  
+[ ] **Monthly read scalability test** – load one month of data within memory limits  
+[ ] **Azurite bandwidth metrics probe** – explore and log emulator network usage stats  
+
+[ ] File naming conventions 
+[ ] **Icechunk integration tests** – test writer, reader, promoter with Azurite  
+[ ] **Icechunk schema validation** – ensure data schema is validated on write  
+[ ] **Icechunk retention policy** – implement retention policy for old data  
+[ ] **Icechunk deletion workflow** – script to delete old data and run garbage collection
+[ ] **Crash-safety integration test** – kill writer mid-upload; ensure `main` is intact  
+[ ] **Network-jitter harness** – `tc netem` (500 ms / 1 % loss) throughput ≥ 80 MB/min  
+[ ] **Deletion workflow demo** – script to remove 1 h window, commit, expire, GC  
+[ ] **Schema drift guard** – hook that blocks promotion on unexpected schema change  
+[ ] **Chunk-shape optimiser** – benchmark different layouts vs. performance  
+[ ] **Documentation: quick-start & run-book** – ops tasks, common commands  
+[ ] **Server Test**: Scripts and instructions for validating server-side functionality and integration.
+[ ] **Instrument Test**: Automated checks for hardware or service instrumentation, ensuring correct metrics and logging.
+[ ] **Installer Package**: Tools and documentation for packaging and distributing the application, including setup scripts and dependency management.
+
+
+
+
+
+
+
