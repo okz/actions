@@ -2,9 +2,8 @@
 Azure Storage operations using Azurite emulator.
 """
 
-import os
 from typing import Optional
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from azure.storage.blob import BlobServiceClient
 
 
 class AzuriteStorageClient:
