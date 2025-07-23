@@ -47,13 +47,13 @@ jobs:
           # Install netcat for port checking
           sudo apt-get update && sudo apt-get install -y netcat-openbsd
           
-          # Pull and start Azurite in background
+          # Pull and start Azurite in background with proper host binding
           docker run -d --name azurite \
             -p 10000:10000 \
             -p 10001:10001 \
             -p 10002:10002 \
             mcr.microsoft.com/azure-storage/azurite:latest \
-            azurite --skipApiVersionCheck --silent
+            azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --silent
           
           # Wait for Azurite to be ready
           echo "Waiting for Azurite to start..."
