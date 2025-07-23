@@ -13,7 +13,7 @@ class TestMockDataGenerator:
     @pytest.fixture
     def seed_file(self):
         """Path to the seed data file"""
-        return Path("/home/mirico/git/actions/tests/data/small_data.nc")
+        return Path(__file__).resolve().parent / "data" / "small_data.nc"
     
     @pytest.fixture
     def temp_output_file(self):
@@ -103,7 +103,7 @@ class TestMockDataGenerator:
         # Verify retro coordinates were extended
         assert len(ds_mock['retro_latitude']) == len(ds_mock['retro'])
         assert len(ds_mock['retro_longitude']) == len(ds_mock['retro'])
-        assert len(ds_mock['retro_altitude']) == len(ds_mock['retro'])
+        assert len(ds_mock['retro_altitude_m']) == len(ds_mock['retro'])
         
         # Check that retro values are unique
         assert len(np.unique(ds_mock['retro'].values)) == len(ds_mock['retro'].values)
@@ -149,8 +149,8 @@ class TestMockDataGenerator:
 
 if __name__ == "__main__":
     # Run a simple example
-    seed_file = Path("/home/mirico/git/actions/tests/data/small_data.nc")
-    output_file = Path("/home/mirico/git/actions/mock_data_example.nc")
+    seed_file = Path(__file__).resolve().parent / "data" / "small_data.nc"
+    output_file = Path.cwd() / "mock_data_example.nc"
     
     print("Generating mock data with 100MB target size...")
     ds = generate_mock_data(

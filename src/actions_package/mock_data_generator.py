@@ -55,9 +55,11 @@ def generate_mock_data(
     timestamps = ds_seed['timestamp'].values
     high_res_timestamps = ds_seed['high_res_timestamp'].values
     
-    # Calculate average time intervals
+    # Calculate time deltas to use when repeating the dataset
     timestamp_interval = pd.Timedelta(timestamps[1] - timestamps[0])
     high_res_interval = pd.Timedelta(high_res_timestamps[1] - high_res_timestamps[0])
+    timestamp_span = pd.Timedelta(timestamps[-1] - timestamps[0]) + timestamp_interval
+    high_res_span = timestamp_span
     
     # Determine multiplication factor based on input
     if target_size_mb is not None:
@@ -74,19 +76,16 @@ def generate_mock_data(
     extended_high_res_timestamps = []
     
     # Generate new timestamps by extending from the last timestamp
-    last_timestamp = timestamps[-1]
-    last_high_res_timestamp = high_res_timestamps[-1]
-    
     for i in range(multiplication_factor):
         if i == 0:
             # Include original timestamps for the first iteration
             extended_timestamps.extend(timestamps)
             extended_high_res_timestamps.extend(high_res_timestamps)
         else:
-            # Generate new timestamps maintaining the same frequency
-            new_timestamps = timestamps + (i * len(timestamps) * timestamp_interval)
-            new_high_res_timestamps = high_res_timestamps + (i * len(high_res_timestamps) * high_res_interval)
-            
+            # Offset the timestamps by the span of the dataset so far
+            new_timestamps = timestamps + (i * timestamp_span)
+            new_high_res_timestamps = high_res_timestamps + (i * high_res_span)
+
             extended_timestamps.extend(new_timestamps)
             extended_high_res_timestamps.extend(new_high_res_timestamps)
     
@@ -115,19 +114,25 @@ def generate_mock_data(
     # Handle data variables
     for var_name, var_data in ds_seed.data_vars.items():
         if 'timestamp' in var_data.dims:
-            # Replicate data along timestamp dimension
-            replicated_data = np.tile(var_data.values, 
-                                    tuple(multiplication_factor if d == 'timestamp' else 1 
-                                          for d in var_data.dims))
-            new_data_vars[var_name] = (var_data.dims, replicated_data, var_data.attrs)
+            replicated_data = np.tile(
+                var_data.values,
+                tuple(multiplication_factor if d == 'timestamp' else 1 for d in var_data.dims),
+            )
+            new_data_vars[var_name] = xr.DataArray(
+                replicated_data, dims=var_data.dims, attrs=var_data.attrs
+            )
         elif 'high_res_timestamp' in var_data.dims:
-            # Replicate data along high_res_timestamp dimension
-            replicated_data = np.tile(var_data.values,
-                                    tuple(multiplication_factor if d == 'high_res_timestamp' else 1
-                                          for d in var_data.dims))
-            new_data_vars[var_name] = (var_data.dims, replicated_data, var_data.attrs)
+            replicated_data = np.tile(
+                var_data.values,
+                tuple(
+                    multiplication_factor if d == 'high_res_timestamp' else 1
+                    for d in var_data.dims
+                ),
+            )
+            new_data_vars[var_name] = xr.DataArray(
+                replicated_data, dims=var_data.dims, attrs=var_data.attrs
+            )
         else:
-            # Keep other variables as is
             new_data_vars[var_name] = var_data
     
     # Handle retro dimension expansion if requested
@@ -141,7 +146,7 @@ def generate_mock_data(
         new_coords['retro'] = ('retro', all_retro_ids)
         
         # Extend retro-related coordinates by cycling through existing data
-        retro_coords = ['retro_altitude', 'retro_latitude', 'retro_longitude', 'retro_name']
+        retro_coords = ['retro_altitude_m', 'retro_latitude', 'retro_longitude', 'retro_name']
         for coord_name in retro_coords:
             if coord_name in ds_seed.coords:
                 existing_data = ds_seed.coords[coord_name].values
@@ -154,23 +159,16 @@ def generate_mock_data(
         # Extend retro-related data variables
         for var_name, var_data in new_data_vars.items():
             if 'retro' in var_data.dims:
-                # Find position of retro dimension
                 retro_axis = var_data.dims.index('retro')
-                existing_data = var_data.values if isinstance(var_data, np.ndarray) else var_data[1]
-                
-                # Create shape for new data
-                shape = list(existing_data.shape)
-                shape[retro_axis] = len(additional_retro_ids)
-                
-                # Cycle through existing retro data
+                existing_data = var_data.values
+
                 indices = np.arange(len(additional_retro_ids)) % existing_retro_count
                 new_retro_data = np.take(existing_data, indices, axis=retro_axis)
-                
-                # Concatenate along retro dimension
+
                 extended_data = np.concatenate([existing_data, new_retro_data], axis=retro_axis)
-                new_data_vars[var_name] = (var_data.dims if isinstance(var_data, np.ndarray) else var_data[0], 
-                                          extended_data, 
-                                          var_data.attrs if isinstance(var_data, xr.DataArray) else var_data[2])
+                new_data_vars[var_name] = xr.DataArray(
+                    extended_data, dims=var_data.dims, attrs=var_data.attrs
+                )
     
     # Create the new dataset
     ds_mock = xr.Dataset(
@@ -180,7 +178,7 @@ def generate_mock_data(
     )
     
     # Update attributes to reflect mock data generation
-    ds_mock.attrs['mock_data'] = True
+    ds_mock.attrs['mock_data'] = "True"
     ds_mock.attrs['mock_multiplication_factor'] = multiplication_factor
     if additional_retro_ids:
         ds_mock.attrs['mock_additional_retro_ids'] = ','.join(map(str, additional_retro_ids))
