@@ -11,6 +11,10 @@
 
 ## One-Line Setup
 ```bash
+# Minimal environment (works everywhere)
+pip install -e ".[dev]" && pytest -m "not azurite and not external_service and not slow"
+
+# Full environment (requires external services)
 pip install -e ".[dev]" && pytest
 ```
 
@@ -25,11 +29,19 @@ pip install -e ".[dev]" && pytest
 # Setup
 pip install -e ".[dev]"
 
-# Test
+# Test (minimal - works in all environments)
+pytest -m "not azurite and not external_service and not slow"
+
+# Test (full - requires external services like Azurite)
 pytest
 
-# Test with coverage
-pytest --cov=actions_package --cov-report=term-missing -v
+# Test with coverage (minimal environment)
+pytest -m "not azurite and not external_service and not slow" --cov=actions_package --cov-report=term-missing -v
+
+# Test with tox (multiple environments)
+tox -e py312-minimal    # Minimal environment
+tox -e py312-fast       # Fast tests only
+tox -e py312            # All tests
 
 # Lint (optional)
 ruff check src/ tests/
@@ -75,9 +87,14 @@ actions/
 
 - **Test Discovery**: Automatic via pytest
 - **Test Pattern**: `test_*.py` files in `tests/`
-- **Coverage Target**: >80% (currently ~69%)
-- **Test Count**: 12 tests total
-- **Test Categories**: Unit tests, parametrized tests
+- **Test Categories**: 
+  - Minimal (6 tests): Import tests, mock data generation - no external dependencies
+  - Full (12 tests): All tests including Azurite storage integration  
+- **Test Selection**: Use pytest markers to run subsets
+  - `pytest -m "not azurite and not external_service and not slow"` - minimal environment
+  - `pytest -m "not slow"` - fast tests only
+  - `pytest` - all tests
+- **Coverage Target**: >80% overall, >90% for core functionality (mock data generator: 100%)
 
 ## Dependencies Context
 
@@ -95,14 +112,17 @@ actions/
 
 ## Known Issues/Limitations
 
-- Coverage at 69% (4 lines uncovered in hello.py main function)
-- No runtime dependencies (minimal package)
-- Tests run on Ubuntu only in CI
+- Some tests require Azurite storage emulator (automatically skipped if not available)
+- Large file generation tests (700MB) marked as slow and skipped in fast test runs
+- Tests gracefully degrade based on available services
+- Minimal environment supports 6 essential tests, full environment supports all 12 tests
 
 ## AI Agent Hints
 
-1. **Quick Start**: Use `pip install -e ".[dev]" && pytest`
-2. **Add Tests**: Create test files in `tests/` with `test_` prefix
-3. **Coverage**: Run `pytest --cov=actions_package` for coverage reports
-4. **Container**: Use `docker-compose up dev` for isolated development
-5. **Setup Script**: Run `./dev-setup.sh` for automated environment setup
+1. **Quick Start**: Use `pip install -e ".[dev]" && pytest -m "not azurite and not external_service and not slow"`
+2. **Minimal Testing**: For codex/agent environments, use marker-based test selection
+3. **Add Tests**: Create test files in `tests/` with `test_` prefix, use appropriate markers
+4. **Coverage**: Run `pytest --cov=actions_package` for coverage reports
+5. **Container**: Use `docker-compose up dev` for isolated development
+6. **Setup Script**: Run `./dev-setup.sh` for automated environment setup
+7. **Test Selection**: See TESTING.md for complete guide on running tests in different environments

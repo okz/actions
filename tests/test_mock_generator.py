@@ -126,6 +126,7 @@ class TestMockDataGenerator:
                 output_file=temp_output_file
             )
     
+    @pytest.mark.slow
     def test_large_file_generation(self, seed_file, temp_output_file):
         """Test generating a large file (700MB as mentioned in requirements)"""
         # This test might take a while, so it's marked for optional execution
