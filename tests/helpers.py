@@ -40,12 +40,12 @@ def setup_icechunk_repo(container_name: str, prefix: str):
     return icechunk.Repository.create(storage)
 
 
-def total_net_bytes(interface: Optional[str] = None) -> int:
-    """Return total bytes sent+received on the given interface."""
+def total_sent_bytes(interface: Optional[str] = None) -> int:
+    """Return total bytes sent on the given interface."""
     counters = psutil.net_io_counters(pernic=True)
     if interface:
         stat = counters.get(interface)
         if stat is None:
             return 0
-        return stat.bytes_sent + stat.bytes_recv
-    return sum(c.bytes_sent + c.bytes_recv for c in counters.values())
+        return stat.bytes_sent
+    return sum(c.bytes_sent for c in counters.values())

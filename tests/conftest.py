@@ -14,37 +14,101 @@ def _is_azurite_running(host: str = "127.0.0.1", port: int = 10000) -> bool:
         return False
 
 
+def _docker_image_exists(image: str) -> bool:
+    """Check if Docker image exists locally."""
+    docker = shutil.which("docker")
+    if not docker:
+        return False
+
+    try:
+        result = subprocess.run(
+            [docker, "image", "inspect", image],
+            capture_output=True,
+            timeout=0.5,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
+def _command_succeeds(cmd: list[str], timeout: float = 0.5) -> bool:
+    """Return True if *cmd* runs & exits with 0 inside *timeout*."""
+    try:
+        return (
+            subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout,
+            ).returncode
+            == 0
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
 def _start_azurite() -> subprocess.Popen | None:
-    """Start Azurite using ``npx`` if available and return the process."""
+    """Start Azurite (preferring Docker) and return the process or None."""
+    docker = shutil.which("docker")
     npx = shutil.which("npx")
-    if npx is None:
-        return None
 
-    process = subprocess.Popen(
-        [npx, "azurite", "--skipApiVersionCheck", "--silent", "--location", "/tmp/azurite"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    # --- Docker (preferred) -------------------------------------------------
+    image = "mcr.microsoft.com/azure-storage/azurite"
+    if (
+        docker
+        and _docker_image_exists(image)  # image already present → no pull delay
+        and _command_succeeds(
+            [docker, "run", "--rm", image, "azurite-blob", "--version"]
+        )
+    ):
+        cmd = [
+            docker,
+            "run",
+            "--rm",
+            "-i",
+            "-p",
+            "10000:10000",
+            image,
+            "azurite-blob",
+            "--skipApiVersionCheck",
+            "--silent",
+        ]
+        return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    for _ in range(30):
-        if _is_azurite_running():
-            return process
-        time.sleep(1)
+    # --- npx fallback -------------------------------------------------------
+    if npx and _command_succeeds([npx, "azurite", "--version"]):
+        cmd = [
+            npx,
+            "azurite",
+            "--skipApiVersionCheck",
+            "--silent",
+            "--location",
+            "/tmp/azurite",
+        ]
+        return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    process.terminate()
+    # Nothing suitable
     return None
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
-    """Ensure Azurite is running before the test session starts."""
+    """Ensure Azurite is running before tests start."""
     if _is_azurite_running():
         session.config.azurite_process = None
         return
 
     process = _start_azurite()
     session.config.azurite_process = process
-    if process is None:
-        print("Warning: Azurite could not be started. Tests may fail.")
+
+    for _ in range(20):  # ≤2 s total
+        if _is_azurite_running():
+            return
+        time.sleep(0.1)
+
+    if process:
+        process.terminate()
+        session.config.azurite_process = None
+    print("Warning: Azurite could not be started. Tests may fail.")
 
 
 @pytest.fixture(autouse=True)
@@ -75,4 +139,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # n
             process.wait(timeout=5)
         except Exception:
             process.kill()
+            process.wait(timeout=5)
+        except Exception:
+            process.kill()
+
 

@@ -352,14 +352,15 @@ MIT License - see LICENSE file for details.
 
 # TODO
 
-[ ] **Setup Azurite dev stack** – Docker Compose file & README for local emulator. 
-[ ] **Setup Codex and Copilot coding agents** capable emulating azurite/CI/testing etc. 
-[ ] **Repo scaffolding with pip, venv folder structure ** – create `src/`, `tests/`, `docs/`
-[ ] **Mocked data creator** Generate large files with a small seeded data amount. 
-[ ] Icechunk features: 
+[OK] **Setup Azurite dev stack** – Docker Compose file & README for local emulator. 
+[OK] **Setup Codex and Copilot coding agents** capable emulating azurite/CI/testing etc. 
+[OK] **Repo scaffolding with pip, venv folder structure** – create `src/`, `tests/`, `docs/`
+[OK] **Mocked data creator** Generate large files with a small seeded data amount. 
 
-[ ] **Multi-dimensional append tests** – verify appends along first and second axes  
-[ ] **File-size sanity checks** – assert on-disk chunk sizes stay within budget  
+## Icechunk features: 
+
+[OK] **Multi-dimensional append tests** – verify appends along first and second axes  
+[OK] **File-size sanity checks** – assert on-disk chunk sizes stay within budget  
 [ ] **Upload integrity validation** – compare local vs. remote hashes after push  
 [ ] **Weekly read benchmark** – open one week of data and measure latency  
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
@@ -383,6 +384,59 @@ MIT License - see LICENSE file for details.
 
 
 
+# Open Questions: 
 
 
+Does xarray connection figure out timeouts/connection issues?  
+How do we optimise the waveform/high volume data transfer?
+
+
+What do we do when we fail.. 
+ 
+  
+  magic number of retries? (e.g., 3 retries) 
+  upload steps.  How do we know the step that failed. 
+  need to know if no connection or if repo is missing. 
+  Whats the daily transfer size. 
+  Seperate branch / maybe even a seperate process for the waveforms/high volume data.
+  retro's appended first. (smallest mods first, minimal loss on connection issues)
+  we need to decide on timestamp starts, for both normal and high volume data? 
+
+  Just push all of the data. 
+
+
+# Difficulties: 
+
+   - Icechunk is git for data, except not really.. It can't merge (it's concept for merge is limited to parallel writes to different chunks)
+
+
+
+
+
+
+  timeout - > 
+
+How do we decide on new repo / project / etc...  It really depends on the readers.  Can we build several GB's in a repo. Can we read quickly enough.  
+We have the date setting... to be a configuration/command line parameter later? 
+
+command line parameters
+
+                 settings: Union[str, Dict[str, str]],
+                 local_root_path: str,
+                 target_root: str,
+                 since_hint: Optional[pd.Timestamp] = None,
+                 until_hint: Optional[pd.Timestamp] = None,
+                 keep_files: Optional[str] = None,
+
+
+- duration breakdown or none.
+- existing parameters ??
+- 
+
+
+default_streaming_settings = {
+    'streaming_minutes': 30,
+    'streaming_days_per_file': 1,
+    # Add other default settings as needed
+}
 

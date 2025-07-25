@@ -7,7 +7,7 @@ import icechunk.xarray as icx
 from actions_package.azure_storage import AzuriteStorageClient
 from actions_package.mock_data_generator import generate_mock_data
 
-from tests.helpers import get_test_data_path, setup_icechunk_repo, total_net_bytes
+from tests.helpers import get_test_data_path, setup_icechunk_repo, total_sent_bytes
 
 
 def test_azurite_basic_operations():
@@ -56,10 +56,10 @@ def test_azure_icechunk_xarray_upload(tmp_path):
 
     session = repo.writable_session("main")
     ds = xr.open_dataset(get_test_data_path())
-    start_bytes = total_net_bytes()
+    start_bytes = total_sent_bytes()
     icx.to_icechunk(ds, session, mode="w")
     session.commit("initial upload")
-    used = total_net_bytes() - start_bytes
+    used = total_sent_bytes() - start_bytes
 
     ro = repo.readonly_session("main")
     result = xr.open_dataset(ro.store, engine="zarr")
@@ -71,6 +71,9 @@ def test_azure_icechunk_xarray_upload(tmp_path):
 
 def test_azure_icechunk_append(tmp_path):
     """Append extended data to an existing icechunk store."""
+
+    start_bytes = total_sent_bytes()
+
     repo = setup_icechunk_repo("append-container", "append-prefix")
 
     base_session = repo.writable_session("main")
@@ -85,7 +88,6 @@ def test_azure_icechunk_append(tmp_path):
         target_size_mb=10,
     )
 
-    start_bytes = total_net_bytes()
 
     ts_slice = slice(len(ds_seed["timestamp"]), None)
     ds_ts = ds_extended.isel(timestamp=ts_slice)
@@ -102,7 +104,13 @@ def test_azure_icechunk_append(tmp_path):
     icx.to_icechunk(ds_hr, hr_session, append_dim="high_res_timestamp")
     hr_session.commit("append highres")
 
-    used = total_net_bytes() - start_bytes
+    used = total_sent_bytes() - start_bytes
+
+    # --- NEW: sanity-check traffic vs. payload size ------------------------
+    file_size = extended_path.stat().st_size  # bytes on disk
+    # At least the payload, but allow a tight overhead (×2) for protocol traffic
+    assert file_size <= used <= file_size * 2
+    # ----------------------------------------------------------------------
 
     ro = repo.readonly_session("main")
     result = xr.open_dataset(ro.store, engine="zarr")
