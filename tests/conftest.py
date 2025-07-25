@@ -76,7 +76,9 @@ def _start_azurite() -> subprocess.Popen | None:
         return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # --- npx fallback -------------------------------------------------------
-    if npx and _command_succeeds([npx, "azurite", "--version"]):
+    # npx can take a moment to start if the azurite package needs to be
+    # downloaded. Allow a more generous timeout for the version check.
+    if npx and _command_succeeds([npx, "azurite", "--version"], timeout=2.0):
         cmd = [
             npx,
             "azurite",
