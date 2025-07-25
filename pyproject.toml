@@ -56,6 +56,12 @@ addopts = [
     "--strict-config",
     "--verbose",
 ]
+markers = [
+    "azurite: marks tests as requiring Azurite storage emulator",
+    "external_service: marks tests as requiring external services",
+    "slow: marks tests as slow running",
+    "integration: marks tests as integration tests",
+]
 
 [tool.coverage.run]
 source = ["src"]

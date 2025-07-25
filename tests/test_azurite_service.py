@@ -3,6 +3,7 @@ import fsspec
 import xarray as xr
 import icechunk
 import icechunk.xarray as icx
+import pytest
 
 from actions_package.azure_storage import AzuriteStorageClient
 from actions_package.mock_data_generator import generate_mock_data
@@ -10,6 +11,8 @@ from actions_package.mock_data_generator import generate_mock_data
 from tests.helpers import get_test_data_path, setup_icechunk_repo, total_sent_bytes
 
 
+@pytest.mark.azurite
+@pytest.mark.external_service
 def test_azurite_basic_operations():
     client = AzuriteStorageClient()
     assert client.create_container() is True
@@ -23,6 +26,8 @@ def test_azurite_basic_operations():
     assert client.delete_blob(blob_name) is True
 
 
+@pytest.mark.azurite
+@pytest.mark.external_service
 def test_azure_fsspec():
     """Use fsspec to write a file to azure storage via Azurite."""
     CONN_STRING = (
@@ -44,12 +49,17 @@ def test_azure_fsspec():
     assert len(fs.ls("test-container")) == 1
 
 
+@pytest.mark.azurite
+@pytest.mark.external_service
 def test_azure_icechunk():
     """Create an empty icechunk repository on Azurite."""
     repo = setup_icechunk_repo("my-container", "my-prefix")
     assert repo is not None
 
 
+@pytest.mark.azurite
+@pytest.mark.external_service
+@pytest.mark.integration
 def test_azure_icechunk_xarray_upload(tmp_path):
     """Upload a NetCDF file to Azurite via icechunk using xarray."""
     repo = setup_icechunk_repo("xarray-container", "xarray-prefix")
@@ -69,6 +79,10 @@ def test_azure_icechunk_xarray_upload(tmp_path):
     assert used > 0
 
 
+@pytest.mark.azurite
+@pytest.mark.external_service
+@pytest.mark.integration
+@pytest.mark.slow
 def test_azure_icechunk_append(tmp_path):
     """Append extended data to an existing icechunk store."""
 

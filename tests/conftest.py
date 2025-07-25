@@ -3,6 +3,7 @@ import shutil
 import socket
 import time
 import pytest
+import os
 
 
 def _is_azurite_running(host: str = "127.0.0.1", port: int = 10000) -> bool:
@@ -95,6 +96,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
     """Ensure Azurite is running before tests start."""
     if _is_azurite_running():
         session.config.azurite_process = None
+        session.config.azurite_available = True
         return
 
     process = _start_azurite()
@@ -102,13 +104,16 @@ def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
 
     for _ in range(20):  # ≤2 s total
         if _is_azurite_running():
+            session.config.azurite_available = True
             return
         time.sleep(0.1)
 
     if process:
         process.terminate()
         session.config.azurite_process = None
-    print("Warning: Azurite could not be started. Tests may fail.")
+    
+    session.config.azurite_available = False
+    # Don't print warning here anymore - tests will be skipped gracefully
 
 
 @pytest.fixture(autouse=True)
@@ -128,6 +133,24 @@ def azurite_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
     )
     monkeypatch.setenv("AZURITE_BLOB_STORAGE_URL", "http://127.0.0.1:10000")
+
+
+@pytest.fixture
+def azurite_required(request):
+    """Skip test if Azurite is not available."""
+    if not getattr(request.config, 'azurite_available', False):
+        pytest.skip("Azurite storage emulator is not available")
+
+
+def pytest_runtest_setup(item):
+    """Skip tests marked as requiring Azurite if it's not available."""
+    azurite_markers = [mark for mark in item.iter_markers(name="azurite")]
+    if azurite_markers and not getattr(item.config, 'azurite_available', False):
+        pytest.skip("Azurite storage emulator is not available")
+    
+    external_service_markers = [mark for mark in item.iter_markers(name="external_service")]
+    if external_service_markers and not getattr(item.config, 'azurite_available', False):
+        pytest.skip("External services not available")
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: D401
