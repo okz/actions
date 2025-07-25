@@ -4,6 +4,11 @@ import fsspec
 from actions_package.azure_storage import AzuriteStorageClient
 
 
+def get_test_data_path():
+    """Get the path to the test data file"""
+    return Path(__file__).resolve().parent / "data" / "small_data.nc"
+
+
 def test_azurite_basic_operations():
     client = AzuriteStorageClient()
     assert client.create_container() is True
@@ -91,7 +96,7 @@ def test_azure_icechunk_xarray_upload(tmp_path):
     repo = icechunk.Repository.create(storage)
 
     session = repo.writable_session("main")
-    ds = xr.open_dataset(Path("tests/data/small_data.nc"))
+    ds = xr.open_dataset(get_test_data_path())
     icx.to_icechunk(ds, session, mode="w")
     session.commit("initial upload")
 
@@ -132,14 +137,14 @@ def test_azure_icechunk_append(tmp_path):
 
     # Initial upload
     base_session = repo.writable_session("main")
-    ds_seed = xr.open_dataset(Path("tests/data/small_data.nc"))
+    ds_seed = xr.open_dataset(get_test_data_path())
     icx.to_icechunk(ds_seed, base_session, mode="w")
     base_session.commit("initial")
 
     # Generate extended dataset
     extended_path = tmp_path / "extended.nc"
     ds_extended = generate_mock_data(
-        seed_file=Path("tests/data/small_data.nc"),
+        seed_file=get_test_data_path(),
         output_file=extended_path,
         target_size_mb=10,
     )
