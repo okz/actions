@@ -104,16 +104,23 @@ class AzuriteStorageClient:
             print(f"Error downloading blob: {e}")
             return None
     
-    def list_blobs(self) -> list[str]:
+    def list_blobs(self, name_starts_with: str | None = None) -> list[str]:
         """
-        List all blobs in the container.
-        
-        Returns:
-            List of blob names.
+        List blobs in the container.
+
+        Parameters
+        ----------
+        name_starts_with : str | None
+            Optional prefix for filtering blob names.
+
+        Returns
+        -------
+        list[str]
+            Names of blobs found in the container.
         """
         try:
             container_client = self.blob_service_client.get_container_client(self.container_name)
-            blobs = container_client.list_blobs()
+            blobs = container_client.list_blobs(name_starts_with=name_starts_with)
             return [blob.name for blob in blobs]
         except Exception as e:
             print(f"Error listing blobs: {e}")
