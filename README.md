@@ -361,12 +361,14 @@ MIT License - see LICENSE file for details.
 
 [OK] **Multi-dimensional append tests** – verify appends along first and second axes  
 [OK] **File-size sanity checks** – assert on-disk chunk sizes stay within budget  
-[ ] **Upload integrity validation** – compare local vs. remote hashes after push  
+[OK] **Upload integrity validation** – compare local vs. remote hashes after push  
+
+
 [ ] **Weekly read benchmark** – open one week of data and measure latency  
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
-[ ] **Azurite bandwidth metrics probe** – explore and log emulator network usage stats  
-
 [ ] File naming conventions 
+
+[  ] **Azurite bandwidth metrics probe** – explore and log emulator network usage stats  
 [ ] **Icechunk integration tests** – test writer, reader, promoter with Azurite  
 [ ] **Icechunk schema validation** – ensure data schema is validated on write  
 [ ] **Icechunk retention policy** – implement retention policy for old data  
@@ -408,6 +410,33 @@ What do we do when we fail..
 # Difficulties: 
 
    - Icechunk is git for data, except not really.. It can't merge (it's concept for merge is limited to parallel writes to different chunks)
+
+   - Transactional features of icechunk makes some of the design decisions we have made unnecessary as well as difficult to follow.  
+   
+      Unneccessary:  
+         - Local state file. (transactional) 
+         - Day splits (petabytes of data in a single file
+         - Seperate high volume data repo (append on two dimensions possible) 
+      
+      Difficult decisions. 
+         - Continue with "local first" approach, or use the icechunk repo as the source of truth??
+         - The decision where do we append / start needs to be resolved. Do we resolve everytime or keep the state file? 
+         - If we don't do day splits, Is there risk on readers taking longer to open the data.
+         - If we seperate the high volume data, opening them might be more complex with icechunk.
+         - We had an issue if the instrument is stopped for a long time, streaming did not continue as it would kjeep findsing the last upload chunk and only add a day to it. #4610
+
+      ## new approach ? 
+
+      - get the last backup data to build the blob folder search path. <instrument/project>/[dates] 
+      - use the last files timestamp to know the last timestamp uploaded. 
+      - update the since_hint and until_hint parameters from the last timestamp uploaded.
+      - limit the until_hint to 4hours (setting) per commit, to avoid large data transfer in one hit. 
+
+      ## start with the new approach, and then fit it into the old approach
+      - we have to do the above anyway for the old approach when there is now state file, or corruption. So start with the new approach and try and get a feel. 
+
+
+
 
 
 
