@@ -118,10 +118,50 @@ def test_large_repo_read_performance(tmp_path) -> None:
     )
 
     repo = _setup_repo(container, prefix)
-    session = repo.writable_session("main")
     ds = xr.open_dataset(large_path)
-    icx.to_icechunk(ds, session, mode="w")
-    session.commit("upload large")
+    # identify variables by dimension type
+    ts_vars = [v for v in ds.data_vars if "timestamp" in ds[v].dims]
+    hr_vars = [v for v in ds.data_vars if "high_res_timestamp" in ds[v].dims]
+
+    ts_start = ds["timestamp"].values[0]
+    ts_end = ds["timestamp"].values[-1]
+    interval = np.timedelta64(15, "m")
+
+    created_ts = False
+    created_hr = False
+    current = ts_start
+    while current < ts_end:
+        next_t = current + interval
+        chunk = ds.sel(
+            timestamp=slice(current, next_t),
+            high_res_timestamp=slice(current, next_t),
+        )
+        ts_chunk = chunk[ts_vars]
+        hr_chunk = chunk[hr_vars]
+
+        session = repo.writable_session("main")
+        if ts_chunk.sizes.get("timestamp", 0) > 0:
+            if not created_ts:
+                icx.to_icechunk(ts_chunk, session, mode="w")
+                created_ts = True
+            else:
+                icx.to_icechunk(ts_chunk, session, mode="a", append_dim="timestamp")
+
+        if hr_chunk.sizes.get("high_res_timestamp", 0) > 0:
+            if not created_hr:
+                mode = "a" if created_ts else "w"
+                icx.to_icechunk(hr_chunk, session, mode=mode)
+                created_hr = True
+            else:
+                icx.to_icechunk(
+                    hr_chunk,
+                    session,
+                    mode="a",
+                    append_dim="high_res_timestamp",
+                )
+
+        session.commit(f"chunk {current}")
+        current = next_t
 
     ro = repo.readonly_session("main")
     ds_remote = xr.open_dataset(ro.store, engine="zarr")
