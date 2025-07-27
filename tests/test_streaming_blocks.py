@@ -7,7 +7,7 @@ import icechunk.xarray as icx
 import xarray as xr
 
 from actions_package.azure_storage import AzuriteStorageClient
-from tests.helpers import get_test_data_path, find_latest_backup_repo
+from tests.helpers import get_test_data_path, open_test_dataset, find_latest_backup_repo
 
 
 def _create_backup_repo(container_name: str, prefix: str, dataset: xr.Dataset) -> None:
@@ -41,7 +41,7 @@ def test_find_latest_backup_repo():
         client.blob_service_client.delete_container(container)
     except Exception:
         pass
-    ds = xr.open_dataset(get_test_data_path())
+    ds = open_test_dataset()
     prefixes = []
 
     for _ in range(3):

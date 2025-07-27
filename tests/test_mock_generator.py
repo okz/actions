@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import os
 import pandas as pd
+from tests.helpers import open_test_dataset
 
 from actions_package.mock_data_generator import generate_mock_data
 
@@ -14,7 +15,7 @@ class TestMockDataGenerator:
     @pytest.fixture
     def seed_file(self):
         """Path to the seed data file"""
-        return Path(__file__).resolve().parent / "data" / "small_data.nc"
+        return Path(__file__).resolve().parent / "data" / "small_data.zarr.zip"
     
     @pytest.fixture
     def temp_output_file(self):
@@ -55,7 +56,7 @@ class TestMockDataGenerator:
         assert temp_output_file.exists()
         
         # Load original dataset for comparison
-        ds_seed = xr.open_dataset(seed_file)
+        ds_seed = open_test_dataset()
         
         # Check that timestamps were extended
         assert len(ds_mock['timestamp']) > len(ds_seed['timestamp'])
@@ -87,7 +88,7 @@ class TestMockDataGenerator:
             output_file=temp_output_file,
             target_duration_hours=24
         )
-        ds_seed = xr.open_dataset(seed_file)
+        ds_seed = open_test_dataset()
         
         # Calculate actual duration
         duration = ds_mock['timestamp'].values[-1] - ds_mock['timestamp'].values[0]
@@ -119,7 +120,7 @@ class TestMockDataGenerator:
         )
         
         # Load original dataset
-        ds_seed = xr.open_dataset(seed_file)
+        ds_seed = open_test_dataset()
         
         # Verify retro dimension was extended
         assert len(ds_mock['retro']) == len(ds_seed['retro']) + len(new_retro_ids)
@@ -210,7 +211,7 @@ class TestMockDataGenerator:
 
 if __name__ == "__main__":
     # Run a simple example
-    seed_file = Path(__file__).resolve().parent / "data" / "small_data.nc"
+    seed_file = Path(__file__).resolve().parent / "data" / "small_data.zarr.zip"
     output_file = Path.cwd() / "mock_data_example.nc"
     
     print("Generating mock data with 100MB target size...")

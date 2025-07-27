@@ -8,11 +8,24 @@ from typing import Optional
 import psutil
 
 from actions_package.azure_storage import AzuriteStorageClient
+from zarr.storage import ZipStore
+import xarray as xr
 
 
 def get_test_data_path() -> Path:
     """Return path to small test dataset."""
-    return Path(__file__).resolve().parent / "data" / "small_data.nc"
+    return Path(__file__).resolve().parent / "data" / "small_data.zarr.zip"
+
+
+def open_test_dataset() -> xr.Dataset:
+    """Open the small test dataset from the zipped zarr file."""
+    path = get_test_data_path()
+    with ZipStore(path, mode="r") as store:
+        ds = xr.open_zarr(store)
+        ds.load()
+    for var in ds.variables:
+        ds[var].encoding.clear()
+    return ds
 
 
 def setup_icechunk_repo(container_name: str, prefix: str):

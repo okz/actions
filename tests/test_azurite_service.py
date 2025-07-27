@@ -8,7 +8,7 @@ import icechunk.xarray as icx
 from actions_package.azure_storage import AzuriteStorageClient
 from actions_package.mock_data_generator import generate_mock_data
 
-from tests.helpers import get_test_data_path, setup_icechunk_repo, total_sent_bytes
+from tests.helpers import get_test_data_path, open_test_dataset, setup_icechunk_repo, total_sent_bytes
 
 
 def test_azurite_basic_operations():
@@ -56,7 +56,7 @@ def test_azure_icechunk_xarray_upload(tmp_path):
     repo = setup_icechunk_repo("xarray-container", "xarray-prefix")
 
     session = repo.writable_session("main")
-    ds = xr.open_dataset(get_test_data_path())
+    ds = open_test_dataset()
     start_bytes = total_sent_bytes()
     icx.to_icechunk(ds, session, mode="w")
     session.commit("initial upload")
@@ -78,7 +78,7 @@ def test_azure_icechunk_append(tmp_path):
     repo = setup_icechunk_repo("append-container", "append-prefix")
 
     base_session = repo.writable_session("main")
-    ds_seed = xr.open_dataset(get_test_data_path())
+    ds_seed = open_test_dataset()
     icx.to_icechunk(ds_seed, base_session, mode="w")
     base_session.commit("initial")
 
