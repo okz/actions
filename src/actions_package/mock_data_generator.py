@@ -59,7 +59,10 @@ def generate_mock_data(
     timestamp_interval = pd.Timedelta(timestamps[1] - timestamps[0])
     high_res_interval = pd.Timedelta(high_res_timestamps[1] - high_res_timestamps[0])
     timestamp_span = pd.Timedelta(timestamps[-1] - timestamps[0]) + timestamp_interval
-    high_res_span = timestamp_span
+    high_res_span = (
+        pd.Timedelta(high_res_timestamps[-1] - high_res_timestamps[0])
+        + high_res_interval
+    )
     
     # Determine multiplication factor based on input
     if target_size_mb is not None:
