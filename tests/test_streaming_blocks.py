@@ -35,6 +35,12 @@ def _create_backup_repo(container_name: str, prefix: str, dataset: xr.Dataset) -
 def test_find_latest_backup_repo():
     """Ensure the latest backup repository can be located and opened."""
     container = "streaming-backup"
+    client = AzuriteStorageClient()
+    client.container_name = container
+    try:
+        client.blob_service_client.delete_container(container)
+    except Exception:
+        pass
     ds = xr.open_dataset(get_test_data_path())
     prefixes = []
 
