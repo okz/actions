@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 import xarray as xr
+import numpy as np
 import icechunk
 import icechunk.xarray as icx
 from azure.storage.blob import BlobServiceClient
@@ -132,35 +133,28 @@ def test_large_repo_read_performance(tmp_path) -> None:
     current = ts_start
     while current < ts_end:
         next_t = current + interval
-        chunk = ds.sel(
-            timestamp=slice(current, next_t),
-            high_res_timestamp=slice(current, next_t),
-        )
-        ts_chunk = chunk[ts_vars]
-        hr_chunk = chunk[hr_vars]
 
-        session = repo.writable_session("main")
+        ts_chunk = ds.sel(timestamp=slice(current, next_t))
+        ts_chunk = ts_chunk[[v for v in ts_chunk.data_vars if "timestamp" in ts_chunk[v].dims]]
+        ts_chunk = ts_chunk.drop_dims("high_res_timestamp", errors="ignore")
         if ts_chunk.sizes.get("timestamp", 0) > 0:
-            if not created_ts:
-                icx.to_icechunk(ts_chunk, session, mode="w")
-                created_ts = True
-            else:
-                icx.to_icechunk(ts_chunk, session, mode="a", append_dim="timestamp")
+            ts_session = repo.writable_session("main")
+            mode = "w" if not created_ts else "a"
+            kw = {"append_dim": "timestamp"} if created_ts else {}
+            icx.to_icechunk(ts_chunk, ts_session, mode=mode, **kw)
+            ts_session.commit(f"ts chunk {current}")
+            created_ts = True
 
+        hr_chunk = ds.sel(high_res_timestamp=slice(current, next_t))
+        hr_chunk = hr_chunk[[v for v in hr_chunk.data_vars if "high_res_timestamp" in hr_chunk[v].dims]]
         if hr_chunk.sizes.get("high_res_timestamp", 0) > 0:
-            if not created_hr:
-                mode = "a" if created_ts else "w"
-                icx.to_icechunk(hr_chunk, session, mode=mode)
-                created_hr = True
-            else:
-                icx.to_icechunk(
-                    hr_chunk,
-                    session,
-                    mode="a",
-                    append_dim="high_res_timestamp",
-                )
+            hr_session = repo.writable_session("main")
+            mode = "a" if (created_ts or created_hr) else "w"
+            kw = {"append_dim": "high_res_timestamp"} if created_hr else {}
+            icx.to_icechunk(hr_chunk, hr_session, mode=mode, **kw)
+            hr_session.commit(f"hr chunk {current}")
+            created_hr = True
 
-        session.commit(f"chunk {current}")
         current = next_t
 
     ro = repo.readonly_session("main")

@@ -1,6 +1,7 @@
 import os
 import fsspec
 import xarray as xr
+import numpy as np
 import icechunk
 import icechunk.xarray as icx
 
@@ -120,3 +121,57 @@ def test_azure_icechunk_append(tmp_path):
     assert len(result["timestamp"]) == len(ds_extended["timestamp"])
     assert len(result["high_res_timestamp"]) == len(ds_extended["high_res_timestamp"])
     assert used > 0
+
+
+def test_large_repo_read_performance_azurite(tmp_path) -> None:
+    """Upload a moderately sized repo and check last timestamps read quickly."""
+    repo = setup_icechunk_repo("perf-container", "perf-prefix")
+
+    large_path = tmp_path / "large.nc"
+    generate_mock_data(
+        seed_file=get_test_data_path(),
+        output_file=large_path,
+        target_duration_hours=4,
+    )
+
+    ds = xr.open_dataset(large_path)
+
+    ts_start = ds["timestamp"].values[0]
+    ts_end = ds["timestamp"].values[-1]
+    interval = np.timedelta64(15, "m")
+
+    created_ts = False
+    created_hr = False
+    current = ts_start
+    while current < ts_end:
+        next_t = current + interval
+
+        ts_chunk = ds.sel(timestamp=slice(current, next_t))
+        ts_chunk = ts_chunk[[v for v in ts_chunk.data_vars if "timestamp" in ts_chunk[v].dims]]
+        ts_chunk = ts_chunk.drop_dims("high_res_timestamp", errors="ignore")
+        if ts_chunk.sizes.get("timestamp", 0) > 0:
+            ts_session = repo.writable_session("main")
+            mode = "w" if not created_ts else "a"
+            kw = {"append_dim": "timestamp"} if created_ts else {}
+            icx.to_icechunk(ts_chunk, ts_session, mode=mode, **kw)
+            ts_session.commit("ts chunk")
+            created_ts = True
+
+        hr_chunk = ds.sel(high_res_timestamp=slice(current, next_t))
+        hr_chunk = hr_chunk[[v for v in hr_chunk.data_vars if "high_res_timestamp" in hr_chunk[v].dims]]
+        if hr_chunk.sizes.get("high_res_timestamp", 0) > 0:
+            hr_session = repo.writable_session("main")
+            mode = "a" if (created_ts or created_hr) else "w"
+            kw = {"append_dim": "high_res_timestamp"} if created_hr else {}
+            icx.to_icechunk(hr_chunk, hr_session, mode=mode, **kw)
+            hr_session.commit("hr chunk")
+            created_hr = True
+
+        current = next_t
+
+    ro = repo.readonly_session("main")
+    ds_remote = xr.open_dataset(ro.store, engine="zarr")
+    last = ds_remote["timestamp"].values[-1]
+    first = ds_remote["timestamp"].values[0]
+    hours = (last - first) / np.timedelta64(1, "h")
+    assert hours >= 4
