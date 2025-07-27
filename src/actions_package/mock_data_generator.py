@@ -3,6 +3,18 @@ import numpy as np
 import pandas as pd
 from typing import Optional, List, Union
 from pathlib import Path
+from zarr.storage import ZipStore
+
+
+def _open_seed_dataset(path: Union[str, Path]) -> xr.Dataset:
+    """Open a dataset from NetCDF or zipped zarr."""
+    p = Path(path)
+    if p.suffix == ".zip":
+        with ZipStore(p, mode="r") as store:
+            ds = xr.open_zarr(store)
+            ds.load()
+        return ds
+    return xr.open_dataset(p)
 
 
 def generate_mock_data(
@@ -18,7 +30,7 @@ def generate_mock_data(
     Parameters
     ----------
     seed_file : str or Path
-        Path to the seed NetCDF file
+        Path to the seed dataset file (NetCDF or zipped Zarr)
     output_file : str or Path
         Path where the generated mock data will be saved
     target_size_mb : float, optional
@@ -46,7 +58,7 @@ def generate_mock_data(
         raise ValueError("Only one of target_size_mb or target_duration_hours can be provided")
     
     # Load the seed dataset
-    ds_seed = xr.open_dataset(seed_file)
+    ds_seed = _open_seed_dataset(seed_file)
     
     # Calculate the current file size in MB
     current_size_mb = ds_seed.nbytes / (1024 * 1024)
