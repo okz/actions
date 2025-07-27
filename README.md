@@ -362,9 +362,10 @@ MIT License - see LICENSE file for details.
 [OK] **Multi-dimensional append tests** – verify appends along first and second axes  
 [OK] **File-size sanity checks** – assert on-disk chunk sizes stay within budget  
 [OK] **Upload integrity validation** – compare local vs. remote hashes after push  
+[OK] **Weekly write benchmark** – write a week of data in 15minute streams and get benchmarks:  1215second upload, 1.8 GB repo size. 
 
+[NOK] **Weekly read benchmark** – open one week of data and measure latency reading last 100 timestamps at the end: near instantaneous. Selectively load a days ch4 data 200ms.   !! High Res timestamp corrupted!!
 
-[ ] **Weekly read benchmark** – open one week of data and measure latency  
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
 [ ] File naming conventions 
 
@@ -468,4 +469,9 @@ default_streaming_settings = {
     'streaming_days_per_file': 1,
     # Add other default settings as needed
 }
+
+
+
+
+
 

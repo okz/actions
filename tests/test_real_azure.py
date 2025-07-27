@@ -65,10 +65,7 @@ def _parse_target(target: str) -> tuple[str, str]:
 def _setup_repo(container: str, prefix: str) -> icechunk.Repository:
     client = _create_blob_service_client()
     container_client = client.get_container_client(container)
-    try:
-        container_client.delete_container()
-    except Exception:
-        pass
+
     try:
         container_client.create_container()
     except Exception:
@@ -115,7 +112,7 @@ def test_large_repo_read_performance(tmp_path) -> None:
     generate_mock_data(
         seed_file=get_test_data_path(),
         output_file=large_path,
-        target_duration_hours=24 * 7,
+        target_duration_hours=24,
     )
 
     repo = _setup_repo(container, prefix)

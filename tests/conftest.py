@@ -95,21 +95,21 @@ def _start_azurite() -> subprocess.Popen | None:
 
 def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
     """Ensure Azurite is running before tests start."""
-    if _is_azurite_running():
-        session.config.azurite_process = None
-        return
+    # if _is_azurite_running():
+    #     session.config.azurite_process = None
+    #     return
 
-    process = _start_azurite()
-    session.config.azurite_process = process
+    # process = _start_azurite()
+    # session.config.azurite_process = process
 
-    for _ in range(20):  # ≤2 s total
-        if _is_azurite_running():
-            return
-        time.sleep(0.1)
+    # for _ in range(20):  # ≤2 s total
+    #     if _is_azurite_running():
+    #         return
+    #     time.sleep(0.1)
 
-    if process:
-        process.terminate()
-        session.config.azurite_process = None
+    # if process:
+    #     process.terminate()
+    #     session.config.azurite_process = None
     print("Warning: Azurite could not be started. Tests may fail.")
 
 
