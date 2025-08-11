@@ -108,6 +108,21 @@ pytest tests/test_hello.py::TestHelloWorld
 pytest tests/test_hello.py::TestHelloWorld::test_hello_world_default
 ```
 
+### Collecting Test Artifacts
+
+Tests can record files such as generated data or plots using the
+`artifacts` fixture. Files saved through this fixture are copied to an
+`artifacts/` directory and a `manifest.json` file is written containing the
+size of each artifact. The manifest is created even when a test fails so that
+CI systems can inspect the results.
+
+Example:
+
+```python
+def test_example(artifacts):
+    artifacts.save_text("output.txt", "content")
+```
+
 ### Current Test Coverage
 
 - **Total Coverage**: ~69%
