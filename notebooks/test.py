@@ -13,7 +13,7 @@ import os
 storage = icechunk.azure_storage(
     account=os.environ["AZURE_STORAGE_ACCOUNT"],
     container="test",
-    prefix="datasets/clads/backups/20250727102904",
+    prefix="datasets/clads/backups/20250728052517",
     from_env=True,
 )
 
@@ -23,37 +23,28 @@ repo = icechunk.Repository.open(storage)
 # %%
 ro = repo.readonly_session("main")
 ds = xr.open_dataset(ro.store, engine="zarr")
-print(ds)
+ds
 
 # %%
-ds   = xr.open_zarr(ro.store)
-# %%
-ro   = repo.readonly_session("main")
-ds   = xr.open_dataset(ro.store, engine="zarr")
-print(ds)
+import hvplot.xarray  # Ensure hvplot is imported for plotting
+ds.windx.isel(high_res_timestamp=slice(-100, None)).hvplot.scatter(title="Wind X Component")
 
-# %%
-import hvplot.xarray
-
-ds.ch4.isel(timestamp=slice(-100, None)).load().hvplot()
-
-
-# %%
-%%timeit
-ds.ch4.sel(timestamp=slice("2025-03-20T00:58:57.478972160", "2025-03-20T23:58:57.478972160")).load()
-
-# %%
-ds.windx.high_res_timestamp.values[-10:]
-
-
-# %%
-ds.windx
-# %%
-len(ds.windx.high_res_timestamp)
-
-# %%
-7 * 24 * 60 * 60 / 14
 # %%
 ds
 # %%
-ds.windx.high_res_timestamp
+ancestry = list(repo.ancestry(branch="main"))
+print("\n\n".join([str((a.id, a.written_at)) for a in ancestry]))
+
+# %%
+expiry_time = ancestry[-2].written_at
+
+results = repo.garbage_collect(expiry_time)
+print(results)
+# %%
+expiry_time
+# %%
+expired = repo.expire_snapshots(older_than=expiry_time)
+print(expired)
+# %%
+ancestry[-1]
+# %%

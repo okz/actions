@@ -364,7 +364,13 @@ MIT License - see LICENSE file for details.
 [OK] **Upload integrity validation** – compare local vs. remote hashes after push  
 [OK] **Weekly write benchmark** – write a week of data in 15minute streams and get benchmarks:  1215second upload, 1.8 GB repo size. 
 
-[NOK] **Weekly read benchmark** – open one week of data and measure latency reading last 100 timestamps at the end: near instantaneous. Selectively load a days ch4 data 200ms.   !! High Res timestamp corrupted!!
+[NOK] **Weekly read benchmark** – open one week of data and measure latency reading last 100 timestamps at the end: near instantaneous. Selectively load a days ch4 data 200ms. 
+
+[ ] Can we append variables to the same dimension later. 
+[ ] Can we append high_freq_timestamp data later. 
+[ ] Can we append waveform data, which is timestamped, later. 
+[ ] Size end up for 24H minimal data, uploaded in 15minute increments. 
+[ ] Size of the uploaded data, once all the waveforms/high freq data is uploaded with 4H chunks, 24H single chunk.
 
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
 [ ] File naming conventions 
@@ -390,6 +396,11 @@ MIT License - see LICENSE file for details.
 # Open Questions: 
 
 
+
+1.4GB for 24 hours data looks very large. This could be the 15minute chunks that are being written.  Compare to single write. 
+
+ms wind data is getting dropped as it's seen as duplicates.  Need to make sure encoding knows to handle as ms quantization and not a second. 
+
 Does xarray connection figure out timeouts/connection issues?  
 How do we optimise the waveform/high volume data transfer?
 
@@ -400,12 +411,13 @@ What do we do when we fail..
   magic number of retries? (e.g., 3 retries) 
   upload steps.  How do we know the step that failed. 
   need to know if no connection or if repo is missing. 
-  Whats the daily transfer size. 
-  Seperate branch / maybe even a seperate process for the waveforms/high volume data.
-  retro's appended first. (smallest mods first, minimal loss on connection issues)
-  we need to decide on timestamp starts, for both normal and high volume data? 
 
-  Just push all of the data. 
+Whats the daily transfer size. 
+Seperate branch / maybe even a seperate process for the waveforms/high volume data.
+retro's appended first. (smallest mods first, minimal loss on connection issues)
+we need to decide on timestamp starts, for both normal and high volume data? 
+
+Just push all of the data. 
 
 
 # Difficulties: 
@@ -475,3 +487,69 @@ default_streaming_settings = {
 
 
 
+
+
+
+generated data: 
+<xarray.Dataset> Size: 3GB
+Dimensions:                            (high_res_timestamp: 190424,
+                                        timestamp: 58500,
+                                        fitted_measurement: 5,
+                                        fitted_measurement_duplicate: 5,
+                                        diagnostics_am_scale_sample: 0,
+                                        diagnostic_sample: 1500, retro: 32,
+                                        settings_id: 32, sample: 740)
+
+
+real data: 
+
+<xarray.Dataset> Size: 3GB
+Dimensions:                            (high_res_timestamp: 188915,
+                                        timestamp: 59900,
+                                        fitted_measurement: 5,
+                                        fitted_measurement_duplicate: 5,
+                                        diagnostics_am_scale_sample: 0,
+                                        diagnostic_sample: 1500, retro: 32,
+                                        settings_id: 32, sample: 740)
+Coordinates: (12/14)
+  * diagnostic_sample                  (diagnostic_sample) int64 12kB 0 ... 1499
+  * diagnostics_am_scale_sample        (diagnostics_am_scale_sample) int64 0B 
+  * fitted_measurement                 (fitted_measurement) int32 20B 0 1 2 3 4
+  * fitted_measurement_duplicate       (fitted_measurement_duplicate) int32 20B ...
+  * high_res_timestamp                 (high_res_timestamp) datetime64[ns] 2MB ...
+  * retro                              (retro) int32 128B 32 33 58 ... 56 52 31
+    ...                                 ...
+    retro_latitude                     (retro) float32 128B 63.14 ... 63.14
+    retro_longitude                    (retro) float32 128B 27.32 ... 27.32
+    retro_name                         (retro) |S100 3kB b'R2' b'R3' ... b'R1'
+  * sample                             (sample) int32 3kB 0 1 2 ... 737 738 739
+  * settings_id                        (settings_id) int64 256B 86 87 ... 117
+  * timestamp                          (timestamp) datetime64[ns] 479kB 2024-...
+Data variables: (12/67)
+    bearing                            (high_res_timestamp) float64 2MB 204.9...
+    c0                                 (timestamp) float64 479kB 3.858e+04 .....
+    c0_stderr                          (timestamp) float64 479kB 32.66 ... 14.4
+    c1                                 (timestamp) float64 479kB -7.76e+04 .....
+    c1_stderr                          (timestamp) float64 479kB 68.8 ... 30.08
+    c2                                 (timestamp) float64 479kB -4.752e+04 ....
+    ...                                 ...
+    windx                              (high_res_timestamp) float64 2MB 2.51 ...
+    windx_m_per_s                      (timestamp) float64 479kB 2.548 ... 0.976
+    windy                              (high_res_timestamp) float64 2MB -1.16...
+    windy_m_per_s                      (timestamp) float64 479kB -0.742 ... -...
+    windz                              (high_res_timestamp) float64 2MB -0.15...
+    windz_m_per_s                      (timestamp) float64 479kB 0.027 ... -0...
+Attributes: (12/14)
+    Conventions:          CF-1.6
+    creator_institution:  Mirico
+    date_created:         2024-09-19T15:22:39
+    featureType:          timeSeries
+    fitted_measurements:  nh3 shift c0 c1 c2
+    gas_id:               4
+    ...                   ...
+    l0_creation:          2024-09-19T15:05:50Z 2024-09-19T15:20:07Z
+    processing_level:     L1
+    processor_name:       clads
+    processor_version:    5.3.9
+    project:              NH3 Halola24 32retros
+    project_id:           12
