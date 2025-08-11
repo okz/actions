@@ -175,3 +175,46 @@ def test_large_repo_read_performance_azurite(tmp_path) -> None:
     first = ds_remote["timestamp"].values[0]
     hours = (last - first) / np.timedelta64(1, "h")
     assert hours >= 4
+
+
+def test_azure_icechunk_append_new_variables() -> None:
+    """Ensure new variables can be added in a later session."""
+
+    container = "var-append-container"
+    prefix = "var-append-prefix"
+    repo = setup_icechunk_repo(container, prefix)
+
+    ds = open_test_dataset()
+    fed_vars = ds.attrs.get("fitted_measurements", "").split()
+    first_ds = ds[fed_vars]
+
+    session = repo.writable_session("main")
+    icx.to_icechunk(first_ds, session, mode="w")
+    session.commit("initial vars")
+
+    storage = icechunk.azure_storage(
+        account=os.environ["AZURE_STORAGE_ACCOUNT_NAME"],
+        container=container,
+        prefix=prefix,
+        from_env=True,
+        config={
+            "azure_storage_use_emulator": "true",
+            "azure_allow_http": "true",
+        },
+    )
+    reopened = icechunk.Repository.open(storage)
+
+    ro = reopened.readonly_session("main")
+    ds_remote = xr.open_dataset(ro.store, engine="zarr")
+    for v in fed_vars:
+        assert v in ds_remote.data_vars
+
+    remaining = ds.drop_vars(fed_vars)
+    session2 = reopened.writable_session("main")
+    icx.to_icechunk(remaining, session2, mode="a")
+    session2.commit("append vars")
+
+    ro2 = reopened.readonly_session("main")
+    final = xr.open_dataset(ro2.store, engine="zarr")
+    for v in ds.data_vars:
+        assert v in final.data_vars
