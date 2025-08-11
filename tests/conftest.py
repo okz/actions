@@ -2,6 +2,8 @@ import subprocess
 import shutil
 import socket
 import time
+import json
+from pathlib import Path
 import pytest
 
 
@@ -144,5 +146,54 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # n
             process.wait(timeout=5)
         except Exception:
             process.kill()
+
+
+class ArtifactCollector:
+    """Helper to store test artifacts and log their sizes."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def save_text(self, name: str, text: str, encoding: str = "utf-8") -> Path:
+        file_path = self.path / name
+        file_path.write_text(text, encoding=encoding)
+        return file_path
+
+    def save_figure(self, figure, name: str = "plot.png", **kwargs) -> Path:  # type: ignore[no-untyped-def]
+        """Save a matplotlib figure under the artifact directory."""
+        file_path = self.path / name
+        figure.savefig(file_path, **kwargs)
+        return file_path
+
+    def finalize(self) -> dict[str, int]:
+        """Write a manifest of artifact file sizes."""
+        manifest = {
+            str(f.relative_to(self.path)): f.stat().st_size
+            for f in self.path.rglob("*")
+            if f.is_file()
+        }
+        if manifest:
+            with (self.path / "manifest.json").open("w", encoding="utf-8") as fh:
+                json.dump(manifest, fh, indent=2)
+        return manifest
+
+
+@pytest.fixture
+def artifacts(request: pytest.FixtureRequest) -> ArtifactCollector:
+    """Return an :class:`ArtifactCollector` for the current test.
+
+    All files written into this directory are logged in a manifest that records
+    their sizes. The manifest is generated regardless of test success or
+    failure, making the artifacts available for inspection by CI systems.
+    """
+
+    base = Path("artifacts")
+    base.mkdir(exist_ok=True)
+    safe_name = request.node.nodeid.replace("/", "_").replace(":", "_")
+    path = base / safe_name
+    path.mkdir(parents=True, exist_ok=True)
+    collector = ArtifactCollector(path)
+    request.addfinalizer(collector.finalize)
+    return collector
 
 
