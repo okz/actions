@@ -364,12 +364,12 @@ MIT License - see LICENSE file for details.
 [OK] **Upload integrity validation** – compare local vs. remote hashes after push  
 [OK] **Weekly write benchmark** – write a week of data in 15minute streams and get benchmarks:  1215second upload, 1.8 GB repo size. 
 
-[NOK] **Weekly read benchmark** – open one week of data and measure latency reading last 100 timestamps at the end: near instantaneous. Selectively load a days ch4 data 200ms. 
+[OK] **Weekly read benchmark** – open one week of data and measure latency reading last 100 timestamps at the end: near instantaneous. Selectively load a days ch4 data 200ms. 
 
-[ ] Can we append variables to the same dimension later. 
+[OK] Can we append variables to the same dimension later.
 [ ] Can we append high_freq_timestamp data later. 
 [ ] Can we append waveform data, which is timestamped, later. 
-[ ] Size end up for 24H minimal data, uploaded in 15minute increments. 
+[ ] Size of repo, up for 24H minimal data, uploaded in 15minute increments. 
 [ ] Size of the uploaded data, once all the waveforms/high freq data is uploaded with 4H chunks, 24H single chunk.
 
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
