@@ -220,7 +220,7 @@ def test_azure_icechunk_append_new_variables() -> None:
         assert v in final.data_vars
 
 
-def test_azure_repo_size_24h_minimal(tmp_path) -> None:
+def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
     """Upload 24h of minimal variables in 15minute increments and report size."""
 
     container = "day-size-container"
@@ -295,4 +295,12 @@ def test_azure_repo_size_24h_minimal(tmp_path) -> None:
     total_bytes = sum(
         blob.size for blob in container_client.list_blobs(name_starts_with=prefix)
     )
+
+    # Save size details to artifacts for CI
+    artifacts.save_text(
+        "repo_size.txt",
+        f"total_bytes={total_bytes}\n"
+        f"total_megabytes={total_bytes/(1024*1024):.2f}\n"
+    )
+
     assert 0 < total_bytes < 50 * 1024 * 1024
