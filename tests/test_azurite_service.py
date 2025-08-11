@@ -218,3 +218,81 @@ def test_azure_icechunk_append_new_variables() -> None:
     final = xr.open_dataset(ro2.store, engine="zarr")
     for v in ds.data_vars:
         assert v in final.data_vars
+
+
+def test_azure_repo_size_24h_minimal(tmp_path) -> None:
+    """Upload 24h of minimal variables in 15minute increments and report size."""
+
+    container = "day-size-container"
+    prefix = "day-size-prefix"
+    repo = setup_icechunk_repo(container, prefix)
+
+    full_day = tmp_path / "full_day.nc"
+    ds_full = generate_mock_data(
+        seed_file=get_test_data_path(),
+        output_file=full_day,
+        target_duration_hours=24,
+    )
+
+    # Select only minimal variables
+    min_vars = {"json"}
+    min_vars.update(v for v in ds_full.data_vars if "retro" in ds_full[v].dims)
+    min_vars.update(
+        [
+            "temperature_k",
+            "pressure_torr",
+            "humidity_percent",
+            "signal_strength_dbm",
+            "measurement_validity",
+            "diagnostics_settings_id",
+        ]
+    )
+    for name in ds_full.attrs.get("fitted_measurements", "").split():
+        min_vars.add(name)
+        err = name + "_err"
+        if err not in ds_full:
+            err = name + "_stderr"
+        if err in ds_full:
+            min_vars.add(err)
+
+    ds = ds_full[sorted(min_vars)]
+
+    # Drop coordinates unrelated to the minimal variables
+    used_dims: set[str] = set()
+    for var in ds.data_vars:
+        used_dims.update(ds[var].dims)
+    drop_coords = [c for c in ds.coords if set(ds[c].dims).isdisjoint(used_dims)]
+    ds = ds.drop_vars(drop_coords)
+
+    interval = np.timedelta64(15, "m")
+    ts_start = ds["timestamp"].values[0]
+    ts_end = ds["timestamp"].values[-1]
+
+    first_end = ts_start + interval
+    first_slice = ds.sel(timestamp=slice(ts_start, first_end))
+    session = repo.writable_session("main")
+    icx.to_icechunk(first_slice, session, mode="w")
+    session.commit("initial chunk")
+
+    current = first_end
+    while current < ts_end:
+        next_t = current + interval
+        chunk = ds.sel(timestamp=slice(current, next_t))
+        if chunk.sizes.get("timestamp", 0) > 0:
+            session = repo.writable_session("main")
+            icx.to_icechunk(chunk, session, mode="a", append_dim="timestamp")
+            session.commit("append chunk")
+        current = next_t
+
+    ro = repo.readonly_session("main")
+    ds_remote = xr.open_dataset(ro.store, engine="zarr")
+    assert set(ds_remote.data_vars) == min_vars
+    assert len(ds_remote["timestamp"]) == len(ds["timestamp"])
+
+    client = AzuriteStorageClient()
+    client.container_name = container
+    container_client = client.blob_service_client.get_container_client(container)
+    total_bytes = sum(
+        blob.size for blob in container_client.list_blobs(name_starts_with=prefix)
+    )
+    assert 0 < total_bytes < 50 * 1024 * 1024
