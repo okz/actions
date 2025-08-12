@@ -221,7 +221,6 @@ def test_azure_icechunk_append_new_variables() -> None:
         assert v in final.data_vars
 
 
-@pytest.mark.skip(reason="Blosc codec unsupported in current zarr configuration")
 def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
     """Upload 24h of minimal variables in 15minute increments and report size."""
 
@@ -265,6 +264,13 @@ def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
         used_dims.update(ds[var].dims)
     drop_coords = [c for c in ds.coords if set(ds[c].dims).isdisjoint(used_dims)]
     ds = ds.drop_vars(drop_coords)
+
+    # Remove inherited encodings and ensure strings are unicode
+    for name in list(ds.variables):
+        ds[name].encoding.clear()
+        if ds[name].dtype.kind in {"S", "O"}:
+            ds[name] = ds[name].astype(str)
+            ds[name].encoding.clear()
 
     interval = np.timedelta64(15, "m")
     ts_start = ds["timestamp"].values[0]
