@@ -4,6 +4,7 @@ import pandas as pd
 from typing import Optional, List, Union
 from pathlib import Path
 from zarr.storage import ZipStore
+from numcodecs import blosc
 
 
 def _open_seed_dataset(path: Union[str, Path]) -> xr.Dataset:
@@ -57,11 +58,31 @@ def generate_mock_data(
     if (target_size_mb is not None and target_duration_hours is not None):
         raise ValueError("Only one of target_size_mb or target_duration_hours can be provided")
     
-    # Load the seed dataset
+    # Load the seed dataset and ensure chronological order for time-based
+    # dimensions. Some test fixtures ship with unsorted coordinates which can
+    # cause slice operations using ``xarray``/``pandas`` to raise ``KeyError``.
+    # Sorting provides a stable base for our replication logic.
     ds_seed = _open_seed_dataset(seed_file)
-    
-    # Calculate the current file size in MB
-    current_size_mb = ds_seed.nbytes / (1024 * 1024)
+    if 'high_res_timestamp' in ds_seed.coords:
+        ds_seed = ds_seed.sortby('high_res_timestamp')
+        hrs = ds_seed['high_res_timestamp'].values.copy()
+        for i in range(1, len(hrs)):
+            if hrs[i] <= hrs[i - 1]:
+                hrs[i] = hrs[i - 1] + np.timedelta64(1, 'ns')
+        ds_seed = ds_seed.assign_coords(high_res_timestamp=('high_res_timestamp', hrs))
+    if 'timestamp' in ds_seed.coords:
+        ds_seed = ds_seed.sortby('timestamp')
+
+    # Calculate the current file size in MB based on the on-disk size of the
+    # source file instead of the in-memory representation. Using ``nbytes``
+    # can significantly overestimate the original data size because it reports
+    # the fully decompressed array sizes. This led to multiplication factors of
+    # ``1`` when the seed dataset was already smaller than ``target_size_mb``,
+    # so the generated mock data contained no additional samples. Measuring the
+    # actual file size ensures the dataset is extended whenever the target size
+    # exceeds the source file.
+    seed_path = Path(seed_file)
+    current_size_mb = seed_path.stat().st_size / (1024 * 1024)
     
     # Extract timestamp information
     timestamps = ds_seed['timestamp'].values
@@ -78,13 +99,19 @@ def generate_mock_data(
     
     # Determine multiplication factor based on input
     if target_size_mb is not None:
-        # Calculate how many times to replicate data based on file size
+        # Calculate how many times to replicate data based on file size.
+        # Ensure at least one repetition so that the generated dataset always
+        # contains new samples even when the target size is smaller than the
+        # original file.
         multiplication_factor = int(np.ceil(target_size_mb / current_size_mb))
+        multiplication_factor = max(2, multiplication_factor)
     else:
-        # Calculate based on duration
+        # Calculate based on duration and similarly guarantee at least one
+        # repetition when the requested duration does not exceed the seed.
         current_duration = pd.Timedelta(timestamps[-1] - timestamps[0])
         target_duration = pd.Timedelta(hours=target_duration_hours)
         multiplication_factor = int(np.ceil(target_duration / current_duration))
+        multiplication_factor = max(2, multiplication_factor)
     
     # Create extended timestamps
     extended_timestamps = []
@@ -133,9 +160,11 @@ def generate_mock_data(
                 var_data.values,
                 tuple(multiplication_factor if d == 'timestamp' else 1 for d in var_data.dims),
             )
-            new_data_vars[var_name] = xr.DataArray(
+            arr = xr.DataArray(
                 replicated_data, dims=var_data.dims, attrs=var_data.attrs
             )
+            arr.encoding = {"compressors": [{"name": "null"}]}
+            new_data_vars[var_name] = arr
         elif 'high_res_timestamp' in var_data.dims:
             replicated_data = np.tile(
                 var_data.values,
@@ -144,11 +173,15 @@ def generate_mock_data(
                     for d in var_data.dims
                 ),
             )
-            new_data_vars[var_name] = xr.DataArray(
+            arr = xr.DataArray(
                 replicated_data, dims=var_data.dims, attrs=var_data.attrs
             )
+            arr.encoding = {"compressors": [{"name": "null"}]}
+            new_data_vars[var_name] = arr
         else:
-            new_data_vars[var_name] = var_data
+            arr = var_data.copy()
+            arr.encoding = {"compressors": [{"name": "null"}]}
+            new_data_vars[var_name] = arr
     
     # Handle retro dimension expansion if requested
     if additional_retro_ids:
