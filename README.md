@@ -354,7 +354,7 @@ MIT License - see LICENSE file for details.
 
 [OK] **Setup Azurite dev stack** – Docker Compose file & README for local emulator. 
 [OK] **Setup Codex and Copilot coding agents** capable emulating azurite/CI/testing etc. 
-[OK] **Repo scaffolding with pip, venv folder structure** – create `src/`, `tests/`, `docs/`
+[OK] **Repo scaffolding with pip, venv folder structure** – create `src/`, `tests/`, `docs/` 
 [OK] **Mocked data creator** Generate large files with a small seeded data amount. 
 
 ## Icechunk features: 
@@ -363,13 +363,11 @@ MIT License - see LICENSE file for details.
 [OK] **File-size sanity checks** – assert on-disk chunk sizes stay within budget  
 [OK] **Upload integrity validation** – compare local vs. remote hashes after push  
 [OK] **Weekly write benchmark** – write a week of data in 15minute streams and get benchmarks:  1215second upload, 1.8 GB repo size. 
-
 [OK] **Weekly read benchmark** – open one week of data and measure latency reading last 100 timestamps at the end: near instantaneous. Selectively load a days ch4 data 200ms. 
-
+[OK] Size of repo, up for 24H minimal data, uploaded in 15minute increments. [Minimal Data just over 20MB]
 [OK] Can we append variables to the same dimension later.
-[ ] Can we append high_freq_timestamp data later. 
-[ ] Can we append waveform data, which is timestamped, later. 
-[ ] Size of repo, up for 24H minimal data, uploaded in 15minute increments. 
+[OK] Can we append high_freq_timestamp data later. 
+[OK] Can we append waveform data, which is timestamped, later. 
 [ ] Size of the uploaded data, once all the waveforms/high freq data is uploaded with 4H chunks, 24H single chunk.
 
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
@@ -486,70 +484,3 @@ default_streaming_settings = {
 
 
 
-
-
-
-
-generated data: 
-<xarray.Dataset> Size: 3GB
-Dimensions:                            (high_res_timestamp: 190424,
-                                        timestamp: 58500,
-                                        fitted_measurement: 5,
-                                        fitted_measurement_duplicate: 5,
-                                        diagnostics_am_scale_sample: 0,
-                                        diagnostic_sample: 1500, retro: 32,
-                                        settings_id: 32, sample: 740)
-
-
-real data: 
-
-<xarray.Dataset> Size: 3GB
-Dimensions:                            (high_res_timestamp: 188915,
-                                        timestamp: 59900,
-                                        fitted_measurement: 5,
-                                        fitted_measurement_duplicate: 5,
-                                        diagnostics_am_scale_sample: 0,
-                                        diagnostic_sample: 1500, retro: 32,
-                                        settings_id: 32, sample: 740)
-Coordinates: (12/14)
-  * diagnostic_sample                  (diagnostic_sample) int64 12kB 0 ... 1499
-  * diagnostics_am_scale_sample        (diagnostics_am_scale_sample) int64 0B 
-  * fitted_measurement                 (fitted_measurement) int32 20B 0 1 2 3 4
-  * fitted_measurement_duplicate       (fitted_measurement_duplicate) int32 20B ...
-  * high_res_timestamp                 (high_res_timestamp) datetime64[ns] 2MB ...
-  * retro                              (retro) int32 128B 32 33 58 ... 56 52 31
-    ...                                 ...
-    retro_latitude                     (retro) float32 128B 63.14 ... 63.14
-    retro_longitude                    (retro) float32 128B 27.32 ... 27.32
-    retro_name                         (retro) |S100 3kB b'R2' b'R3' ... b'R1'
-  * sample                             (sample) int32 3kB 0 1 2 ... 737 738 739
-  * settings_id                        (settings_id) int64 256B 86 87 ... 117
-  * timestamp                          (timestamp) datetime64[ns] 479kB 2024-...
-Data variables: (12/67)
-    bearing                            (high_res_timestamp) float64 2MB 204.9...
-    c0                                 (timestamp) float64 479kB 3.858e+04 .....
-    c0_stderr                          (timestamp) float64 479kB 32.66 ... 14.4
-    c1                                 (timestamp) float64 479kB -7.76e+04 .....
-    c1_stderr                          (timestamp) float64 479kB 68.8 ... 30.08
-    c2                                 (timestamp) float64 479kB -4.752e+04 ....
-    ...                                 ...
-    windx                              (high_res_timestamp) float64 2MB 2.51 ...
-    windx_m_per_s                      (timestamp) float64 479kB 2.548 ... 0.976
-    windy                              (high_res_timestamp) float64 2MB -1.16...
-    windy_m_per_s                      (timestamp) float64 479kB -0.742 ... -...
-    windz                              (high_res_timestamp) float64 2MB -0.15...
-    windz_m_per_s                      (timestamp) float64 479kB 0.027 ... -0...
-Attributes: (12/14)
-    Conventions:          CF-1.6
-    creator_institution:  Mirico
-    date_created:         2024-09-19T15:22:39
-    featureType:          timeSeries
-    fitted_measurements:  nh3 shift c0 c1 c2
-    gas_id:               4
-    ...                   ...
-    l0_creation:          2024-09-19T15:05:50Z 2024-09-19T15:20:07Z
-    processing_level:     L1
-    processor_name:       clads
-    processor_version:    5.3.9
-    project:              NH3 Halola24 32retros
-    project_id:           12
