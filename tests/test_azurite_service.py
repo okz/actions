@@ -8,6 +8,15 @@ import pytest
 
 from actions_package.azure_storage import AzuriteStorageClient
 from actions_package.mock_data_generator import generate_mock_data
+from actions_package.xarray_utils import (
+    select_minimal_variables,
+    select_waveform_variables,
+    select_high_freq_variables,
+    upload_in_intervals,
+    upload_single_chunk,
+    clean_dataset,
+    ensure_null_codec,
+)
 
 from tests.helpers import get_test_data_path, open_test_dataset, setup_icechunk_repo, total_sent_bytes
 
@@ -312,3 +321,70 @@ def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
     )
 
     assert 0 < total_bytes < 50 * 1024 * 1024
+
+
+def test_azure_repo_append_waveform_highfreq(tmp_path, artifacts) -> None:
+    """Append waveform and high-frequency data and compare repo sizes."""
+
+    full_day = tmp_path / "full_day.nc"
+    ds_full = generate_mock_data(
+        seed_file=get_test_data_path(),
+        output_file=full_day,
+        target_duration_hours=24,
+    )
+
+    # --- chunked repository -------------------------------------------------
+    chunk_container = "chunked-container"
+    chunk_prefix = "chunked-prefix"
+    repo_chunk = setup_icechunk_repo(chunk_container, chunk_prefix)
+
+    ds_min = select_minimal_variables(ds_full)
+    upload_in_intervals(repo_chunk, ds_min, "timestamp", np.timedelta64(15, "m"))
+
+    ds_wave = select_waveform_variables(ds_full, ds_min.data_vars)
+    ds_wave = ds_wave.drop_vars("waveforms_wavenumbers", errors="ignore")
+    ensure_null_codec()
+    wave_session = repo_chunk.writable_session("main")
+    icx.to_icechunk(ds_wave, wave_session, mode="a")
+    wave_session.commit("append waveforms")
+
+    ds_high = select_high_freq_variables(ds_full)
+    upload_in_intervals(
+        repo_chunk, ds_high, "high_res_timestamp", np.timedelta64(4, "h"), mode_first="a"
+    )
+
+    ro = repo_chunk.readonly_session("main")
+    ds_remote = xr.open_dataset(ro.store, engine="zarr")
+    expected_vars = set(ds_full.data_vars) - {"waveforms_wavenumbers"}
+    assert set(ds_remote.data_vars) == expected_vars
+    assert len(ds_remote["timestamp"]) == len(ds_full["timestamp"])
+    assert len(ds_remote["high_res_timestamp"]) == len(ds_full["high_res_timestamp"])
+
+    client = AzuriteStorageClient()
+    client.container_name = chunk_container
+    container_client = client.blob_service_client.get_container_client(chunk_container)
+    chunked_bytes = sum(
+        blob.size for blob in container_client.list_blobs(name_starts_with=chunk_prefix)
+    )
+
+    # --- single-chunk repository -------------------------------------------
+    single_container = "single-container"
+    single_prefix = "single-prefix"
+    repo_single = setup_icechunk_repo(single_container, single_prefix)
+    upload_single_chunk(repo_single, clean_dataset(ds_full))
+
+    client.container_name = single_container
+    container_client = client.blob_service_client.get_container_client(single_container)
+    single_bytes = sum(
+        blob.size for blob in container_client.list_blobs(name_starts_with=single_prefix)
+    )
+
+    artifacts.save_text(
+        "repo_size_full.txt",
+        f"chunked_bytes={chunked_bytes}\nchunked_mb={chunked_bytes/(1024*1024):.2f}\n"
+        f"single_bytes={single_bytes}\nsingle_mb={single_bytes/(1024*1024):.2f}\n",
+    )
+
+    assert chunked_bytes > 0
+    assert single_bytes > 0
+
