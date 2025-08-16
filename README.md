@@ -368,7 +368,22 @@ MIT License - see LICENSE file for details.
 [OK] Can we append variables to the same dimension later.
 [OK] Can we append high_freq_timestamp data later. 
 [OK] Can we append waveform data, which is timestamped, later. 
-[ ] Size of the uploaded data, once all the waveforms/high freq data is uploaded with 4H chunks, 24H single chunk.
+[!OK] Size of the uploaded data, once all the waveforms/high freq data is uploaded with 4H chunks, 24H single chunk. [Simulated data for a 3GB NetCDF was 1.2GB, check compression settings]
+
+
+[] Create a few random files on the blob path. 
+[] implement fast path finding that can search ${CLADS_BACKUP_UPLOAD_TARGET}/<instrument>/<project>/<YYYY-MM-DDtHH-mm-SSz>-inst-<instrument>-prj-<project>-l1b/
+[] Start a Streaming class template using the old one. It's icechunk so remove the unnecessary functions.  In fact ask for variables/properties/methods only, no code. 
+[] Search these paths should be ordered for YYYY-MM-DDtHH-mm-SS so we open the latest one. 
+[] Latest one is opened, extracting the timestamp. the Streaming Class keeps the dataset open and opens in append mode. 
+[] If there is no access we exit 
+[] Mock a backup for tests instead of clads.Backup that returns couple of mock zarr files and returns their paths in the format the backup module does. 
+[] Class sorts them to dates and iterates streaming them. _stream.
+[] _stream checks if is appendable. 
+[] if is appendable we append retro dim first, then minimal timestamp data. These tasks har handled in _append()
+[] if not appendable, we create new icechunk repo then call _append(). the repo name should follow <instrument>/<project>/<YYYY-MM-DDtHH-mm-SSz>-inst-<instrument>-prj-<project>-l1b/
+[] 
+
 
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
 [ ] File naming conventions 
@@ -395,13 +410,7 @@ MIT License - see LICENSE file for details.
 
 
 
-1.4GB for 24 hours data looks very large. This could be the 15minute chunks that are being written.  Compare to single write. 
-
-ms wind data is getting dropped as it's seen as duplicates.  Need to make sure encoding knows to handle as ms quantization and not a second. 
-
 Does xarray connection figure out timeouts/connection issues?  
-How do we optimise the waveform/high volume data transfer?
-
 
 What do we do when we fail.. 
  
@@ -411,6 +420,7 @@ What do we do when we fail..
   need to know if no connection or if repo is missing. 
 
 Whats the daily transfer size. 
+
 Seperate branch / maybe even a seperate process for the waveforms/high volume data.
 retro's appended first. (smallest mods first, minimal loss on connection issues)
 we need to decide on timestamp starts, for both normal and high volume data? 
@@ -443,36 +453,17 @@ Just push all of the data.
       - update the since_hint and until_hint parameters from the last timestamp uploaded.
       - limit the until_hint to 4hours (setting) per commit, to avoid large data transfer in one hit. 
 
-      ## start with the new approach, and then fit it into the old approach
-      - we have to do the above anyway for the old approach when there is now state file, or corruption. So start with the new approach and try and get a feel. 
+
+Where do we upload ?? 
+
+   Yes.... <instrument/project/date_for_fun>   whenever the <gas_id> <gas_version>changes.   So no change !
+   decided against:    No.... <instrument/project/<gas_id>_<gas_version>/date_for_fun>
+
+   
 
 
 
-
-
-
-
-
-
-  timeout - > 
-
-How do we decide on new repo / project / etc...  It really depends on the readers.  Can we build several GB's in a repo. Can we read quickly enough.  
-We have the date setting... to be a configuration/command line parameter later? 
-
-command line parameters
-
-                 settings: Union[str, Dict[str, str]],
-                 local_root_path: str,
-                 target_root: str,
-                 since_hint: Optional[pd.Timestamp] = None,
-                 until_hint: Optional[pd.Timestamp] = None,
-                 keep_files: Optional[str] = None,
-
-
-- duration breakdown or none.
-- existing parameters ??
-- 
-
+# Default Settings
 
 default_streaming_settings = {
     'streaming_minutes': 30,
@@ -483,4 +474,16 @@ default_streaming_settings = {
 
 
 
+
+You’re designing an Icechunk upload/streamer.
+
+It will accept a few inputs:
+
+--since-hint (CLI): optional; if provided it may be used to skip forward (the system may choose to honor or ignore it).
+
+-- Config settings (dict): used to locate the database/source that holds the data to be backed up.
+
+-- 
+
+-- Environment variable: provides the root folder for the cloud files (destination root in cloud storage).
 
