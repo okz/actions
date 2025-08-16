@@ -134,6 +134,24 @@ def azurite_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AZURITE_BLOB_STORAGE_URL", "http://127.0.0.1:10000")
 
 
+@pytest.fixture(scope="session")
+def blob_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Return temporary path used as CLADS backup target."""
+    base = tmp_path_factory.mktemp("blob")
+    mp = pytest.MonkeyPatch()
+    mp.setenv("CLADS_BACKUP_UPLOAD_TARGET", str(base))
+    yield base
+    mp.undo()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def generated_repos(blob_root: Path) -> list[Path]:
+    """Generate a couple of icechunk repositories for tests."""
+    from actions_package.mock_data_generator import generate_ice_chunk_repositories
+
+    seed = Path(__file__).resolve().parent / "data" / "small_data.zarr.zip"
+    return generate_ice_chunk_repositories(seed, count=2)
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: D401
     """Terminate Azurite after the test session if we started it."""
     process = getattr(session.config, "azurite_process", None)
