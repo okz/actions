@@ -78,11 +78,23 @@ def test_minimal_day_upload(artifacts) -> None:
 
 
 def test_minimal_day_upload_incremental(artifacts) -> None:
-    """Upload minimal variables for ~24h in 15-minute chunks, reopening the repo for each append."""
+    """Upload minimal variables for ~24h in fixed-size chunks, reopening the repo for each append."""
     ds = open_test_dataset()
     ds_min = select_minimal_variables(ds)
     ds_day = _extend_to_24h(ds_min)
     ds_day = clean_dataset(ds_day)
+
+    # enforce fixed chunk size along timestamp dimension
+    chunk_size = 10_000
+    total_ts = ds_day.sizes["timestamp"]
+    aligned_ts = (total_ts // chunk_size) * chunk_size
+    ds_day = ds_day.isel(timestamp=slice(0, aligned_ts))
+
+    encoding = {}
+    for v in ds_day.data_vars:
+        if "timestamp" in ds_day[v].dims:
+            shape = ds_day[v].shape
+            encoding[v] = {"chunks": (chunk_size,) + shape[1:]}
 
     container = "minimal-day-incremental-container"
     prefix = "minimal-day-incremental-prefix"
@@ -105,32 +117,31 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
         config={"azure_storage_use_emulator": "true", "azure_allow_http": "true"},
     )
 
-    t0 = ds_day["timestamp"].values[0]
-    tN = ds_day["timestamp"].values[-1]
-    interval = np.timedelta64(15, "m")
-    first_end = t0 + interval
-
-
     # First chunk: create repo (mode="w")
-    first_chunk = ds_day.sel(timestamp=slice(t0, first_end))
+    first_chunk = ds_day.isel(timestamp=slice(0, chunk_size))
     repo = icechunk.Repository.create(storage)
     s = repo.writable_session("main")
-    icx.to_icechunk(first_chunk, s, mode="w")
-    s.commit("initial 15m chunk")
+    icx.to_icechunk(first_chunk, s, mode="w", encoding=encoding)
+    s.commit("initial chunk")
 
     # Subsequent chunks: reopen repo and append each time
-    current = first_end
-    while current < tN:
-        next_t = current + interval
-        chunk = ds_day.sel(timestamp=slice(current, next_t))
-        if chunk.sizes.get("timestamp", 0) > 0:
-            reopened = icechunk.Repository.open(storage)
-            s2 = reopened.writable_session("main")
-            icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp")
-            s2.commit("append 15m chunk")
-        current = next_t
+    for start in range(chunk_size, aligned_ts, chunk_size):
+        chunk = ds_day.isel(timestamp=slice(start, start + chunk_size))
+        reopened = icechunk.Repository.open(storage)
+        s2 = reopened.writable_session("main")
+        icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp", encoding=encoding)
+        s2.commit("append chunk")
 
     used_sent = max(0, total_sent_bytes() - start_sent)
+
+    # verify stored chunking
+    reopened = icechunk.Repository.open(storage)
+    read_s = reopened.readonly_session("main")
+    stored = xr.open_zarr(read_s.store, consolidated=False)
+    assert stored.sizes["timestamp"] == aligned_ts
+    for v in stored.data_vars:
+        if "timestamp" in stored[v].dims:
+            assert stored[v].encoding.get("chunks")[0] == chunk_size
 
     container_client = client.blob_service_client.get_container_client(container)
     total_bytes = sum(blob.size for blob in container_client.list_blobs(name_starts_with=prefix))
