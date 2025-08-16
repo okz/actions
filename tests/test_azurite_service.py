@@ -235,6 +235,44 @@ def test_azure_icechunk_append_new_variables() -> None:
         assert v in final.data_vars
 
 
+def test_azure_icechunk_append_reduced_variables() -> None:
+    """Append fitted variables from later timestamps to a partial repo."""
+
+    container = "var-append-reduced-container"
+    prefix = "var-append-reduced-prefix"
+    repo = setup_icechunk_repo(container, prefix)
+
+    ds = open_test_dataset()
+    mid_ts = ds.sizes["timestamp"] // 2
+    mid_hr = ds.sizes["high_res_timestamp"] // 2
+
+    first = ds.isel(timestamp=slice(0, mid_ts), high_res_timestamp=slice(0, mid_hr))
+    session = repo.writable_session("main")
+    icx.to_icechunk(first, session, mode="w")
+    session.commit("first half")
+
+    fed_vars = ds.attrs.get("fitted_measurements", "").split()
+    second = ds.isel(timestamp=slice(mid_ts, None))[fed_vars]
+    second = second.drop_dims("high_res_timestamp", errors="ignore")
+    session2 = repo.writable_session("main")
+    icx.to_icechunk(second, session2, append_dim="timestamp")
+    session2.commit("append fitted")
+
+    ro = repo.readonly_session("main")
+    store = ro.store
+    drop_vars = [v for v in ds.data_vars if v not in fed_vars]
+    ds_fed = xr.open_dataset(store, engine="zarr", drop_variables=drop_vars)
+
+    assert len(ds_fed["timestamp"]) == ds.sizes["timestamp"]
+    for v in fed_vars:
+        assert len(ds_fed[v]) == ds.sizes["timestamp"]
+
+    import zarr
+
+    hum = zarr.open_array(store, path="humidity_percent")
+    assert hum.shape[0] == mid_ts
+
+
 def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
     """Upload 24h of minimal variables in 15minute increments and report size."""
 
