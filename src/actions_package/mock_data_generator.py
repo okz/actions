@@ -45,30 +45,36 @@ def generate_ice_chunk_repositories(
 ) -> List[Path]:
     """Create *count* icechunk repositories from *seed_file*.
 
-    The repositories are placed under ``<base>/<instrument>/<project>`` where
+    Repositories are placed under ``<base>/<instrument>/<project>`` where
     *base* defaults to the ``CLADS_BACKUP_UPLOAD_TARGET`` environment variable.
-    Each repository name follows the pattern ``YYYYMMDD_<gas_id>_<gas_version>``.
-    ``gas_id`` and ``gas_version`` are incremented for each repository so they
-    end up in separate locations.
+    Each repository name follows the pattern
+    ``inst-<instrument>-prj-<project>-<YYYY-MM-DDtHH-mm-SSz>l1b`` and a unique
+    timestamp is generated for every repository created.
     """
 
     ds_seed = _open_seed_dataset(seed_file)
-    base_gas_id = int(ds_seed.attrs.get("gas_id", 0))
-    base_version = int(ds_seed.attrs.get("gas_version", 0))
 
     paths: List[Path] = []
+    base_ts = np.datetime64(ds_seed["timestamp"].values[0], "s")
+
     for i in range(count):
         ds = ds_seed.copy(deep=True)
-        ds.attrs["gas_id"] = base_gas_id + i
-        ds.attrs["gas_version"] = base_version + i
         for var in ds.variables:
             ds[var].encoding.clear()
 
         repo_base = build_blob_base_path(ds, base)
         repo_base.mkdir(parents=True, exist_ok=True)
 
-        date = np.datetime_as_string(ds["timestamp"].values[0], unit="D").replace("-", "")
-        repo_name = f"{date}_{ds.attrs['gas_id']}_{ds.attrs['gas_version']}"
+        ts = base_ts + np.timedelta64(i, "s")
+        ts_str = (
+            np.datetime_as_string(ts, unit="s")
+            .replace("T", "t")
+            .replace(":", "-")
+            + "z"
+        )
+        instrument = ds.attrs.get("instrument", "")
+        project = ds.attrs.get("project", "")
+        repo_name = f"inst-{instrument}-prj-{project}-{ts_str}l1b"
         repo_path = repo_base / repo_name
 
         storage = icechunk.local_filesystem_storage(str(repo_path))
