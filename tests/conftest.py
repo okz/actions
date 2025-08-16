@@ -147,7 +147,7 @@ def blob_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session", autouse=True)
 def generated_repos(blob_root: Path) -> list[Path]:
     """Generate a couple of icechunk repositories for tests."""
-    from actions_package.mock_data_generator import generate_ice_chunk_repositories
+    from ice_stream.mock_data_generator import generate_ice_chunk_repositories
 
     seed = Path(__file__).resolve().parent / "data" / "small_data.zarr.zip"
     return generate_ice_chunk_repositories(seed, count=2)

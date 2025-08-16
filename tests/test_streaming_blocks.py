@@ -5,8 +5,7 @@ import icechunk
 import icechunk.xarray as icx
 import xarray as xr
 
-from actions_package.azure_storage import AzuriteStorageClient
-from tests.helpers import open_test_dataset, find_latest_backup_repo
+from tests.helpers import AzuriteStorageClient, open_test_dataset, find_latest_backup_repo
 
 
 def _create_backup_repo(container_name: str, prefix: str, dataset: xr.Dataset) -> None:

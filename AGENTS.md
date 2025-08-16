@@ -15,7 +15,7 @@ pip install -e ".[dev]" && pytest
 For coverage information, run:
 
 ```bash
-pytest --cov=actions_package --cov-report=term-missing -v
+pytest --cov=ice_stream --cov-report=term-missing -v
 ```
 
 See the **AI_ENVIRONMENT.md** document for complete environment and workflow

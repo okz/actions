@@ -7,7 +7,7 @@ def test_icechunk_available():
     assert module is not None
 
 
-def test_actions_package_available():
-    """Ensure our actions_package can be imported."""
-    module = importlib.import_module("actions_package")
+def test_ice_stream_available():
+    """Ensure our ice_stream package can be imported."""
+    module = importlib.import_module("ice_stream")
     assert module is not None
