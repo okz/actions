@@ -1,4 +1,4 @@
-# Dockerfile for actions-package development environment
+# Dockerfile for ice-stream development environment
 # This provides a reproducible environment for AI coding agents and developers
 
 FROM python:3.12-slim
@@ -41,11 +41,11 @@ RUN useradd -m -s /bin/bash developer && \
 USER developer
 
 # Default command runs tests
-CMD ["pytest", "--cov=actions_package", "--cov-report=term-missing", "-v"]
+CMD ["pytest", "--cov=ice_stream", "--cov-report=term-missing", "-v"]
 
 # Build and run instructions:
-# docker build -t actions-package-dev .
-# docker run -it actions-package-dev
-# 
+# docker build -t ice-stream-dev .
+# docker run -it ice-stream-dev
+#
 # For development with volume mount:
-# docker run -it -v $(pwd):/app actions-package-dev /bin/bash
+# docker run -it -v $(pwd):/app ice-stream-dev /bin/bash

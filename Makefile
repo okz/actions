@@ -1,4 +1,4 @@
-# Makefile for actions-package development
+# Makefile for ice-stream development
 # Provides common automation commands for AI coding agents and developers
 
 .PHONY: help install install-dev test test-cov lint build clean docker-build docker-test docker-dev setup
@@ -22,7 +22,7 @@ test: ## Run tests
 	pytest
 
 test-cov: ## Run tests with coverage report
-	pytest --cov=actions_package --cov-report=term-missing -v
+        pytest --cov=ice_stream --cov-report=term-missing -v
 
 lint: ## Run linting with ruff
 	ruff check src/ tests/
@@ -51,13 +51,13 @@ clean: ## Clean build artifacts and cache
 	find . -type f -name "*.pyc" -delete
 
 docker-build: ## Build Docker development image
-	docker build -t actions-package-dev .
+        docker build -t ice-stream-dev .
 
 docker-test: ## Run tests in Docker container
-	docker run --rm actions-package-dev
+        docker run --rm ice-stream-dev
 
 docker-dev: ## Start interactive Docker development environment
-	docker run -it --rm -v $(PWD):/app actions-package-dev /bin/bash
+        docker run -it --rm -v $(PWD):/app ice-stream-dev /bin/bash
 
 setup: ## Complete development environment setup
 	./dev-setup.sh

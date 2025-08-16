@@ -8,7 +8,7 @@ from zarr.storage import ZipStore
 from numcodecs import blosc
 import icechunk
 
-from .xarray_utils import upload_single_chunk
+from .blocks import upload_single_chunk
 
 
 def _open_seed_dataset(path: Union[str, Path]) -> xr.Dataset:

@@ -10,7 +10,7 @@ import icechunk.xarray as icx
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
-from actions_package.mock_data_generator import generate_mock_data
+from ice_stream.mock_data_generator import generate_mock_data
 from tests.helpers import get_test_data_path
 
 # Load environment variables from tests/.env if present

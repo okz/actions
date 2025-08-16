@@ -8,9 +8,89 @@ from typing import Optional
 
 import psutil
 
-from actions_package.azure_storage import AzuriteStorageClient
+from azure.storage.blob import BlobServiceClient
 from zarr.storage import ZipStore
 import xarray as xr
+
+
+class AzuriteStorageClient:
+    """Lightweight client for the Azurite blob storage emulator used in tests."""
+
+    def __init__(self, connection_string: str | None = None):
+        if connection_string is None:
+            connection_string = (
+                "DefaultEndpointsProtocol=http;"
+                "AccountName=devstoreaccount1;"
+                "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
+                "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+            )
+        # Use an API version compatible with Azurite but fall back if unavailable
+        try:
+            self.blob_service_client = BlobServiceClient.from_connection_string(
+                connection_string, api_version="2020-10-02"
+            )
+        except Exception:
+            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        self.container_name = "test-container"
+
+    def create_container(self) -> bool:
+        try:
+            container_client = self.blob_service_client.get_container_client(self.container_name)
+            container_client.create_container()
+            return True
+        except Exception as e:
+            if "ContainerAlreadyExists" in str(e):
+                return True
+            return False
+
+    def upload_blob(self, blob_name: str, data, is_binary: bool = False) -> bool:
+        try:
+            blob_client = self.blob_service_client.get_blob_client(
+                container=self.container_name, blob=blob_name
+            )
+            if is_binary and isinstance(data, bytes):
+                blob_client.upload_blob(data, overwrite=True)
+            else:
+                blob_client.upload_blob(str(data), overwrite=True)
+            return True
+        except Exception:
+            return False
+
+    def download_blob(self, blob_name: str) -> str | None:
+        try:
+            blob_client = self.blob_service_client.get_blob_client(
+                container=self.container_name, blob=blob_name
+            )
+            return blob_client.download_blob().readall().decode("utf-8")
+        except Exception:
+            return None
+
+    def delete_blob(self, blob_name: str) -> bool:
+        try:
+            blob_client = self.blob_service_client.get_blob_client(
+                container=self.container_name, blob=blob_name
+            )
+            blob_client.delete_blob()
+            return True
+        except Exception:
+            return False
+
+    def blob_exists(self, blob_name: str) -> bool:
+        try:
+            blob_client = self.blob_service_client.get_blob_client(
+                container=self.container_name, blob=blob_name
+            )
+            return blob_client.exists()
+        except Exception:
+            return False
+
+    def list_blobs(self, name_starts_with: str | None = None) -> list[str]:
+        try:
+            container_client = self.blob_service_client.get_container_client(self.container_name)
+            blobs = container_client.list_blobs(name_starts_with=name_starts_with)
+            return [blob.name for blob in blobs]
+        except Exception:
+            return []
 
 
 def get_test_data_path() -> Path:

@@ -7,7 +7,7 @@ import os
 import pandas as pd
 from tests.helpers import open_test_dataset
 
-from actions_package.mock_data_generator import generate_mock_data
+from ice_stream.mock_data_generator import generate_mock_data
 
 
 class TestMockDataGenerator:

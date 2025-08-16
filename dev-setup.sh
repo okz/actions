@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Development Environment Setup Script
-# This script automates the setup process for the actions-package development environment
+# This script automates the setup process for the ice-stream development environment
 
 set -e
 
-echo "🚀 Setting up actions-package development environment..."
+echo "🚀 Setting up ice-stream development environment..."
 
 # Check Python version
 echo "📋 Checking Python version..."
@@ -47,11 +47,11 @@ pip install ruff build
 
 # Verify installation
 echo "✅ Verifying installation..."
-python -c "from actions_package import hello_world; print('Package import successful:', hello_world())"
+python -c "import ice_stream; print('Package import successful:', ice_stream.__version__)"
 
 # Run tests to verify everything works
 echo "🧪 Running tests to verify setup..."
-pytest --cov=actions_package --cov-report=term-missing -v
+pytest --cov=ice_stream --cov-report=term-missing -v
 
 echo ""
 echo "🎉 Development environment setup complete!"
@@ -59,7 +59,7 @@ echo ""
 echo "📝 Next steps:"
 echo "1. Activate the virtual environment: source venv/bin/activate"
 echo "2. Run tests: pytest"
-echo "3. Start coding in src/actions_package/"
+echo "3. Start coding in src/ice_stream/"
 echo "4. Add tests in tests/"
 echo ""
 echo "📚 For more information, see DEVELOPMENT.md"
