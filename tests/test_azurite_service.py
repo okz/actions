@@ -296,42 +296,9 @@ def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
         target_duration_hours=24,
     )
 
-    # Select only minimal variables
-    min_vars = {"json"}
-    min_vars.update(v for v in ds_full.data_vars if "retro" in ds_full[v].dims)
-    min_vars.update(
-        [
-            "temperature_k",
-            "pressure_torr",
-            "humidity_percent",
-            "signal_strength_dbm",
-            "measurement_validity",
-            "diagnostics_settings_id",
-        ]
-    )
-    for name in ds_full.attrs.get("fitted_measurements", "").split():
-        min_vars.add(name)
-        err = name + "_err"
-        if err not in ds_full:
-            err = name + "_stderr"
-        if err in ds_full:
-            min_vars.add(err)
-
-    ds = ds_full[sorted(min_vars)]
-
-    # Drop coordinates unrelated to the minimal variables
-    used_dims: set[str] = set()
-    for var in ds.data_vars:
-        used_dims.update(ds[var].dims)
-    drop_coords = [c for c in ds.coords if set(ds[c].dims).isdisjoint(used_dims)]
-    ds = ds.drop_vars(drop_coords)
-
-    # Remove inherited encodings and ensure strings are unicode
-    for name in list(ds.variables):
-        ds[name].encoding.clear()
-        if ds[name].dtype.kind in {"S", "O"}:
-            ds[name] = ds[name].astype(str)
-            ds[name].encoding.clear()
+    # Select only minimal variables using helper
+    ds = select_minimal_variables(ds_full)
+    min_vars = set(ds.data_vars)
 
     interval = np.timedelta64(15, "m")
     ts_start = ds["timestamp"].values[0]
