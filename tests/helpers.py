@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -63,17 +64,63 @@ def total_sent_bytes(interface: Optional[str] = None) -> int:
         return stat.bytes_sent
     return sum(c.bytes_sent for c in counters.values())
 
-def find_latest_backup_repo(container_name: str, backup_root: str = "backup") -> list[str]:
-    """Return backup repository prefixes in creation order."""
-    client = AzuriteStorageClient()
-    client.container_name = container_name
-    blob_names = client.list_blobs(name_starts_with=f"{backup_root}/")
-    prefixes: set[str] = set()
-    for name in blob_names:
-        parts = name.split("/", 2)
-        if len(parts) >= 2:
-            prefixes.add(parts[1])
-    if not prefixes:
+def find_latest_backup_repo(target: Optional[str] = None) -> list[str]:
+    """Return backup repository prefixes in chronological order.
+
+    Parameters
+    ----------
+    target : str, optional
+        Root location to search. Defaults to the
+        ``CLADS_BACKUP_UPLOAD_TARGET`` environment variable.
+    """
+
+    target = target or os.environ["CLADS_BACKUP_UPLOAD_TARGET"]
+    pattern = re.compile(
+        r"inst-[^/]+-prj-[^/]+-\d{4}-\d{2}-\d{2}t\d{2}-\d{2}-\d{2}zl1b(min)?$"
+    )
+
+    if target.startswith("az://") or target.startswith("https://") or target.startswith("http://"):
+        target = target.replace("az://", "")
+        if target.startswith("https://") or target.startswith("http://"):
+            target = target.split("/", 3)[-1]
+        parts = target.split("/", 1)
+        container = parts[0]
+        base_prefix = parts[1] if len(parts) > 1 else ""
+
+        client = AzuriteStorageClient()
+        container_client = client.blob_service_client.get_container_client(container)
+        repos: list[str] = []
+
+        for inst in container_client.walk_blobs(name_starts_with=base_prefix, delimiter="/"):
+            inst_prefix = inst.name
+            for proj in container_client.walk_blobs(name_starts_with=inst_prefix, delimiter="/"):
+                proj_prefix = proj.name
+                for repo in container_client.walk_blobs(name_starts_with=proj_prefix, delimiter="/"):
+                    full = repo.name.rstrip("/")
+                    name = full.split("/")[-1]
+                    if pattern.fullmatch(name):
+                        if base_prefix:
+                            full = full[len(base_prefix) + 1 :]
+                        repos.append(full)
+
+        if not repos:
+            raise FileNotFoundError("No backup repositories found")
+        repos.sort()
+        return repos
+
+    root = Path(target)
+    repos: list[str] = []
+    for inst in root.iterdir():
+        if not inst.is_dir():
+            continue
+        for proj in inst.iterdir():
+            if not proj.is_dir():
+                continue
+            for repo in proj.iterdir():
+                if repo.is_dir() and pattern.fullmatch(repo.name):
+                    repos.append(str(repo.relative_to(root)))
+
+    if not repos:
         raise FileNotFoundError("No backup repositories found")
-    timestamps = sorted(prefixes)
-    return [f"{backup_root}/{ts}" for ts in timestamps]
+    repos.sort()
+    return repos

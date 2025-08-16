@@ -1,13 +1,12 @@
 import os
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import icechunk
 import icechunk.xarray as icx
 import xarray as xr
 
 from actions_package.azure_storage import AzuriteStorageClient
-from tests.helpers import get_test_data_path, open_test_dataset, find_latest_backup_repo
+from tests.helpers import open_test_dataset, find_latest_backup_repo
 
 
 def _create_backup_repo(container_name: str, prefix: str, dataset: xr.Dataset) -> None:
@@ -42,16 +41,18 @@ def test_find_latest_backup_repo():
     except Exception:
         pass
     ds = open_test_dataset()
+    instrument = ds.attrs["instrument"]
+    project = ds.attrs["project"]
     prefixes = []
 
-    for _ in range(3):
-        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
-        prefix = f"backup/{ts}"
+    base = datetime.utcnow()
+    for i in range(3):
+        ts = (base + timedelta(seconds=i)).strftime("%Y-%m-%dt%H-%M-%Sz")
+        prefix = f"{instrument}/{project}/inst-{instrument}-prj-{project}-{ts}l1b"
         _create_backup_repo(container, prefix, ds)
         prefixes.append(prefix)
-        time.sleep(0.01)  # ensure unique timestamps
 
-    repos = find_latest_backup_repo(container)
+    repos = find_latest_backup_repo(f"az://{container}")
     assert repos == sorted(prefixes)
     latest = repos[-1]
 

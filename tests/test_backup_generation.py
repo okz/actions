@@ -13,11 +13,19 @@ def test_generated_repositories_structure(blob_root: Path, generated_repos: list
     assert base_dir.exists()
     assert len(generated_repos) == 2
 
-    date = np.datetime_as_string(ds["timestamp"].values[0], unit="D").replace("-", "")
-    expected = [
-        base_dir / f"{date}_{int(ds.attrs['gas_id']) + i}_{int(ds.attrs['gas_version']) + i}"
-        for i in range(2)
-    ]
+    base_ts = np.datetime64(ds["timestamp"].values[0], "s")
+    expected = []
+    for i in range(2):
+        ts = base_ts + np.timedelta64(i, "s")
+        ts_str = (
+            np.datetime_as_string(ts, unit="s")
+            .replace("T", "t")
+            .replace(":", "-")
+            + "z"
+        )
+        expected.append(
+            base_dir / f"inst-{instrument}-prj-{project}-{ts_str}l1b"
+        )
 
     assert sorted(generated_repos) == sorted(expected)
     for path in expected:
