@@ -379,17 +379,22 @@ or
 <instrument>/<project>/inst-<instrument>-prj-<project>-<YYYY-MM-DDtHH-mm-SSz>l1bmin/
 
 [OK] Start a Streaming class template using the old one. It's icechunk so remove the unnecessary functions.  In fact ask for variables/properties/methods only, no code. 
-
-[] Clean the mock package template evolving to the Streaming class. 
+[OK] Clean the mock package template evolving to the Streaming class. 
+[] rename the package to 'icestream' 
+[] minimal data should include "signal_strength_dbm", "measurement_validity", "wind_" data  "diagnostics_settings_id
+[] Housekeeping:  timestamp naming should follow the most widely used patterns with
+[] Mock Backup files with different project ids,  <gas_id> <gas_version> and test append behaviour,
 [] Search these paths should be ordered for YYYY-MM-DDtHH-mm-SS so we open the latest one. 
-[] Latest one is opened, extracting the timestamp. the Streaming Class keeps the dataset open and opens in append mode. 
 [] If there is no access we exit 
+[] Latest one is opened, extracting the timestamp. the Streaming Class keeps the dataset open and opens in append mode. 
 [] Mock a backup for tests instead of clads.Backup that returns couple of mock zarr files and returns their paths in the format the backup module does. 
 [] Class sorts them to dates and iterates streaming them. _stream.
 [] _stream checks if is appendable. 
 [] if is appendable we append retro dim first, then minimal timestamp data. These tasks har handled in _append()
 [] if not appendable, we create new icechunk repo then call _append(). the repo name should follow <instrument>/<project>/<YYYY-MM-DDtHH-mm-SSz>-inst-<instrument>-prj-<project>-l1b/
-[] 
+[ ] move to private repo 
+[ ] test with clads.  
+[ ] find a way to mock DB data.
 
 
 [ ] **Monthly read scalability test** – load one month of data within memory limits  
