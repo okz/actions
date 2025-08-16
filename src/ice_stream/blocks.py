@@ -26,27 +26,13 @@ def clean_dataset(ds: xr.Dataset) -> xr.Dataset:
 
 
 def select_minimal_variables(ds: xr.Dataset) -> xr.Dataset:
-    """Return dataset with minimal variables used for base uploads."""
-    min_vars = {"json"}
-    min_vars.update(v for v in ds.data_vars if "retro" in ds[v].dims)
-    min_vars.update(
-        [
-            "temperature_k",
-            "pressure_torr",
-            "humidity_percent",
-            "signal_strength_dbm",
-            "measurement_validity",
-            "diagnostics_settings_id",
-        ]
-    )
-    for name in ds.attrs.get("fitted_measurements", "").split():
-        min_vars.add(name)
-        err = name + "_err"
-        if err not in ds:
-            err = name + "_stderr"
-        if err in ds:
-            min_vars.add(err)
-    subset = ds[sorted(min_vars)]
+    """Return variables with a single dimension excluding high-res timestamps."""
+    candidates = [
+        v
+        for v in ds.data_vars
+        if len(ds[v].dims) == 1 and ds[v].dims[0] != "high_res_timestamp"
+    ]
+    subset = ds[candidates]
     return clean_dataset(subset)
 
 
