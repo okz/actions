@@ -372,8 +372,15 @@ MIT License - see LICENSE file for details.
 
 
 [] Create a few random files on the blob path. 
-[] implement fast path finding that can search ${CLADS_BACKUP_UPLOAD_TARGET}/<instrument>/<project>/<YYYY-MM-DDtHH-mm-SSz>-inst-<instrument>-prj-<project>-l1b/
+[] implement fast path finding that can search ${CLADS_BACKUP_UPLOAD_TARGET}/ for all icechunkl projects. 
+[] methods to return incechunk paths that are in the format:
+<instrument>/<project>/inst-<instrument>-prj-<project>-<YYYY-MM-DDtHH-mm-SSz>l1b/
+or 
+<instrument>/<project>/inst-<instrument>-prj-<project>-<YYYY-MM-DDtHH-mm-SSz>l1bmin/
+
 [] Start a Streaming class template using the old one. It's icechunk so remove the unnecessary functions.  In fact ask for variables/properties/methods only, no code. 
+
+[] Clean the mock package template evolving to the Streaming class. 
 [] Search these paths should be ordered for YYYY-MM-DDtHH-mm-SS so we open the latest one. 
 [] Latest one is opened, extracting the timestamp. the Streaming Class keeps the dataset open and opens in append mode. 
 [] If there is no access we exit 
