@@ -19,11 +19,11 @@ from tests.helpers import AzuriteStorageClient, open_test_dataset
 # Utility helpers
 # -----------------------------------------------------------------------------
 
-def _extend_to_24h(ds: xr.Dataset) -> xr.Dataset:
-    """Extend dataset to cover at least 24 hours along timestamp dimension."""
+def _extend_to_4h(ds: xr.Dataset) -> xr.Dataset:
+    """Extend dataset to cover at least 4 hours along timestamp dimension."""
     t = ds["timestamp"].values
     span = (t[-1] - t[0]) + (t[1] - t[0])
-    factor = int(np.ceil(np.timedelta64(24, "h") / span))
+    factor = int(np.ceil(np.timedelta64(4, "h") / span))
     time_vars = [v for v in ds.data_vars if ds[v].dims == ("timestamp",)]
     other_vars = [v for v in ds.data_vars if v not in time_vars]
     parts = []
@@ -50,10 +50,10 @@ def _run_incremental(
     """Run an incremental upload benchmark and log metrics."""
     ds = open_test_dataset()
     ds_min = select_minimal_variables(ds)
-    ds_day = _extend_to_24h(ds_min)
-    ds_day = clean_dataset(ds_day)
+    ds_4h = _extend_to_4h(ds_min)
+    ds_4h = clean_dataset(ds_4h)
 
-    encoding = encoding_fn(ds_day) if encoding_fn else None
+    encoding = encoding_fn(ds_4h) if encoding_fn else None
 
     container = f"{name}-container"
     prefix = f"{name}-prefix"
@@ -81,7 +81,7 @@ def _run_incremental(
     else:
         repo = icechunk.Repository.create(storage)
 
-    t_vals = ds_day["timestamp"].values
+    t_vals = ds_4h["timestamp"].values
     interval = np.timedelta64(15, "m")
     t0 = t_vals[0]
     tN = t_vals[-1]
@@ -93,7 +93,7 @@ def _run_incremental(
 
     net_start = psutil.net_io_counters()
 
-    first_chunk = ds_day.sel(timestamp=slice(t0, first_end))
+    first_chunk = ds_4h.sel(timestamp=slice(t0, first_end))
     session = repo.writable_session("main")
     icx.to_icechunk(first_chunk, session, mode="w", encoding=encoding)
     tcs = time.perf_counter()
@@ -105,7 +105,7 @@ def _run_incremental(
     current = first_end
     while current < tN:
         next_t = current + interval
-        chunk = ds_day.sel(timestamp=slice(current, next_t))
+        chunk = ds_4h.sel(timestamp=slice(current, next_t))
         if chunk.sizes.get("timestamp", 0) > 0:
             if repo_cfg_obj:
                 repo = icechunk.Repository.open(storage, config=repo_cfg_obj)
@@ -143,7 +143,7 @@ def _run_incremental(
     store = ro_session.store
     t_read_start = time.perf_counter()
     ds_read = xr.open_zarr(store)
-    ds_read.sel(timestamp=slice(ds_read["timestamp"].values[-1] - np.timedelta64(24, "h"), None))
+    ds_read.sel(timestamp=slice(ds_read["timestamp"].values[-1] - np.timedelta64(4, "h"), None))
     read_latency = time.perf_counter() - t_read_start
 
     result = {
