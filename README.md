@@ -1,6 +1,6 @@
-# Actions Package
+# ice-stream
 
-A basic skeleton Python 3.12 package with pytest support, GitHub Actions CI/CD, and copilot coding agent compatibility.
+Utilities for streaming Icechunk data with pytest support, GitHub Actions CI/CD, and copilot coding agent compatibility.
 
 ## Features
 
@@ -8,7 +8,6 @@ A basic skeleton Python 3.12 package with pytest support, GitHub Actions CI/CD, 
 - Modern `pyproject.toml` configuration
 - Pytest testing framework
 - GitHub Actions CI/CD pipeline
-- Hello world functionality as an example
 - Azure Storage integration with Azurite emulator support
 - Comprehensive test coverage
 - **🔧 Complete development environment documentation**
@@ -43,7 +42,7 @@ A basic skeleton Python 3.12 package with pytest support, GitHub Actions CI/CD, 
 
 4. **Verify the installation**
    ```bash
-   python -c "from actions_package import hello_world; print(hello_world())"
+   python -c "import ice_stream; print(ice_stream.__version__)"
    pytest tests/ -v
    ```
 
@@ -97,14 +96,14 @@ pip install -e .[dev]
 For using the package in your projects:
 
 ```bash
-pip install actions-package
+pip install ice-stream
 ```
 
 ## Troubleshooting
 
 ### Common Setup Issues
 
-#### Import Error: `ModuleNotFoundError: No module named 'actions_package'`
+#### Import Error: `ModuleNotFoundError: No module named 'ice_stream'`
 
 This usually means the package wasn't installed in development mode. Make sure you run:
 
@@ -158,7 +157,7 @@ If tests aren't being discovered:
 pytest tests/ -v
 
 # Or run specific test file
-pytest tests/test_hello.py -v
+pytest tests/test_azurite_service.py -v
 ```
 
 ## Usage
@@ -166,27 +165,10 @@ pytest tests/test_hello.py -v
 ### As a Python module
 
 ```python
-from actions_package import hello_world, AzuriteStorageClient
+import ice_stream
+from ice_stream import mock_data_generator
 
-# Basic usage
-print(hello_world())  # Output: Hello, World!
-
-# With custom name
-print(hello_world("Python"))  # Output: Hello, Python!
-
-# Azure Storage operations (requires Azurite running)
-client = AzuriteStorageClient()
-client.create_container()
-client.upload_blob("test.txt", "Hello, Azure Storage!")
-content = client.download_blob("test.txt")
-print(content)  # Output: Hello, Azure Storage!
-```
-
-### As a CLI tool
-
-```bash
-# Run the main function
-python -m actions_package.hello
+print(ice_stream.__version__)
 ```
 
 ## Development
@@ -198,7 +180,7 @@ python -m actions_package.hello
 pytest
 
 # Run tests with coverage
-pytest --cov=actions_package
+pytest --cov=ice_stream
 
 # Run tests with verbose output
 pytest -v
@@ -242,34 +224,12 @@ Once Azurite is running, you can test the Azure Storage functionality:
 pytest tests/test_azurite_service.py -v
 
 # Run all tests including Azure Storage
-pytest --cov=actions_package --cov-report=term-missing -v
+pytest --cov=ice_stream --cov-report=term-missing -v
 ```
 
 #### Manual Testing
 
-```python
-from actions_package import AzuriteStorageClient
-
-# Connect to Azurite (default connection)
-client = AzuriteStorageClient()
-
-# Create a container
-client.create_container()
-
-# Upload a blob
-client.upload_blob("example.txt", "Hello, Azurite!")
-
-# List blobs
-blobs = client.list_blobs()
-print(f"Blobs: {blobs}")
-
-# Download a blob
-content = client.download_blob("example.txt")
-print(f"Content: {content}")
-
-# Delete a blob
-client.delete_blob("example.txt")
-```
+Use the utilities in `tests/helpers.py` as a reference for interacting with the Azurite emulator.
 
 #### Azurite Connection Details
 
@@ -286,12 +246,13 @@ The default Azurite connection uses these endpoints:
 ```
 actions/
 ├── src/
-│   └── actions_package/
+│   └── ice_stream/
 │       ├── __init__.py
-│       └── hello.py
+│       ├── blocks.py
+│       └── mock_data_generator.py
 ├── tests/
 │   ├── __init__.py
-│   └── test_hello.py
+│   └── test_azurite_service.py
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
@@ -329,8 +290,8 @@ docker-compose up test   # Run tests
 docker-compose up lint   # Run linting
 
 # Using Docker directly
-docker build -t actions-package-dev .
-docker run -it -v $(pwd):/app actions-package-dev /bin/bash
+docker build -t ice-stream-dev .
+docker run -it -v $(pwd):/app ice-stream-dev /bin/bash
 ```
 
 ## Contributing

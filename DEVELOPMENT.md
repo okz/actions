@@ -1,6 +1,6 @@
 # Development Environment Guide
 
-This document provides comprehensive build and development environment details for AI coding agents and developers working on the actions package.
+This document provides comprehensive build and development environment details for AI coding agents and developers working on the ice-stream package.
 
 ## Quick Environment Summary
 
@@ -41,7 +41,7 @@ pip install -e ".[dev]"
 ```
 actions/
 ├── src/
-│   └── actions_package/
+│   └── ice_stream/
 │       ├── __init__.py          # Package initialization
 │       └── hello.py             # Main functionality
 ├── tests/
@@ -65,7 +65,7 @@ pip install -e ".[dev]"
 pytest
 
 # Run tests with coverage
-pytest --cov=actions_package --cov-report=xml --cov-report=term-missing -v
+pytest --cov=ice_stream --cov-report=xml --cov-report=term-missing -v
 
 # Run linting (optional)
 pip install ruff
@@ -96,16 +96,10 @@ pytest
 pytest -v
 
 # Run tests with coverage report
-pytest --cov=actions_package --cov-report=term-missing
+pytest --cov=ice_stream --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_hello.py
-
-# Run specific test class
-pytest tests/test_hello.py::TestHelloWorld
-
-# Run specific test method
-pytest tests/test_hello.py::TestHelloWorld::test_hello_world_default
+pytest tests/test_azurite_service.py
 ```
 
 ### Collecting Test Artifacts
@@ -127,11 +121,10 @@ def test_example(artifacts):
 
 - **Total Coverage**: ~69%
 - **Files**: 2 source files
-- **Test Cases**: 12 tests
-- **Test Categories**: 
-  - Unit tests for hello_world function
-  - Unit tests for get_greeting_count function
-  - Parametrized tests for edge cases
+- **Test Cases**: ~12 tests
+- **Test Categories**:
+  - Azurite integration tests
+  - Mock data generation tests
 
 ## Dependencies
 
@@ -172,7 +165,7 @@ def test_example(artifacts):
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
 ruff check src/ tests/ || echo "Ruff check completed"
-pytest --cov=actions_package --cov-report=xml --cov-report=term-missing -v
+pytest --cov=ice_stream --cov-report=xml --cov-report=term-missing -v
 python -m build
 ```
 
@@ -186,7 +179,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "actions-package"
+name = "ice-stream"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = []  # No runtime dependencies
@@ -204,10 +197,10 @@ addopts = ["--strict-markers", "--strict-config", "--verbose"]
 
 ### Making Changes
 1. Create feature branch
-2. Make code changes in `src/actions_package/`
+2. Make code changes in `src/ice_stream/`
 3. Add/update tests in `tests/`
 4. Run tests locally: `pytest`
-5. Check coverage: `pytest --cov=actions_package`
+5. Check coverage: `pytest --cov=ice_stream`
 6. Submit pull request
 
 ### Code Quality
@@ -228,13 +221,13 @@ addopts = ["--strict-markers", "--strict-config", "--verbose"]
 ### Debug Commands
 ```bash
 # Check package installation
-pip list | grep actions-package
+pip list | grep ice-stream
 
 # Check Python version
 python --version
 
 # Verify package import
-python -c "from actions_package import hello_world; print(hello_world())"
+python -c "import ice_stream; print(ice_stream.__version__)"
 
 # Check test discovery
 pytest --collect-only
@@ -244,18 +237,9 @@ pytest --collect-only
 
 ### As Python Module
 ```python
-from actions_package import hello_world
+import ice_stream
 
-# Basic usage
-print(hello_world())  # "Hello, World!"
-
-# With custom name
-print(hello_world("Python"))  # "Hello, Python!"
-```
-
-### As CLI Tool
-```bash
-python -m actions_package.hello
+print(ice_stream.__version__)
 ```
 
 This comprehensive guide provides all the environment and build details needed for AI coding agents to work efficiently with this repository.

@@ -29,7 +29,7 @@ pip install -e ".[dev]"
 pytest
 
 # Test with coverage
-pytest --cov=actions_package --cov-report=term-missing -v
+pytest --cov=ice_stream --cov-report=term-missing -v
 
 # Lint (optional)
 ruff check src/ tests/
@@ -41,13 +41,13 @@ python -m build
 ### Container Development
 ```bash
 # Build container
-docker build -t actions-package-dev .
+docker build -t ice-stream-dev .
 
 # Run tests in container
-docker run actions-package-dev
+docker run ice-stream-dev
 
 # Interactive development
-docker run -it -v $(pwd):/app actions-package-dev /bin/bash
+docker run -it -v $(pwd):/app ice-stream-dev /bin/bash
 
 # Using Docker Compose
 docker-compose up dev    # Interactive development
@@ -59,11 +59,11 @@ docker-compose up lint   # Run linting
 
 ```
 actions/
-├── src/actions_package/     # Source code
+├── src/ice_stream/         # Source code
 │   ├── __init__.py         # Package exports
-│   └── hello.py            # Main module
+│   ├── blocks.py           # Dataset helpers
+│   └── mock_data_generator.py  # Mock dataset generation
 ├── tests/                  # Test suite
-│   └── test_hello.py       # Test file
 ├── pyproject.toml          # Build configuration
 ├── DEVELOPMENT.md          # Comprehensive dev guide
 ├── Dockerfile              # Container specification
@@ -95,7 +95,7 @@ actions/
 
 ## Known Issues/Limitations
 
-- Coverage at 69% (4 lines uncovered in hello.py main function)
+- Coverage around 69%; additional tests may improve this
 - No runtime dependencies (minimal package)
 - Tests run on Ubuntu only in CI
 
@@ -103,6 +103,6 @@ actions/
 
 1. **Quick Start**: Use `pip install -e ".[dev]" && pytest`
 2. **Add Tests**: Create test files in `tests/` with `test_` prefix
-3. **Coverage**: Run `pytest --cov=actions_package` for coverage reports
+3. **Coverage**: Run `pytest --cov=ice_stream` for coverage reports
 4. **Container**: Use `docker-compose up dev` for isolated development
 5. **Setup Script**: Run `./dev-setup.sh` for automated environment setup

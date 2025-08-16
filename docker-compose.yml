@@ -23,7 +23,7 @@ services:
       - .:/app
       - /app/venv
     working_dir: /app
-    command: pytest --cov=actions_package --cov-report=term-missing -v
+    command: pytest --cov=ice_stream --cov-report=term-missing -v
     
   lint:
     build:

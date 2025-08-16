@@ -1,107 +1,18 @@
-"""
-Xarray utilities for the actions package.
-"""
+"""Helpers for working with xarray datasets and Icechunk repositories."""
 
-import xarray as xr
+from __future__ import annotations
+
+from typing import Iterable
+
 import numpy as np
-from typing import Optional, Dict, Any, Iterable
+import xarray as xr
 import icechunk.xarray as icx
 from zarr.registry import register_codec
 
 
-def create_sample_dataset() -> xr.Dataset:
-    """
-    Create a sample xarray Dataset for testing.
-    
-    Returns:
-        xarray Dataset with sample data.
-    """
-    # Create sample data
-    np.random.seed(42)
-    time = np.arange(0, 10)
-    lat = np.linspace(-90, 90, 5)
-    lon = np.linspace(-180, 180, 8)
-    
-    # Create sample temperature data
-    temperature = np.random.randn(len(time), len(lat), len(lon))
-    
-    # Create Dataset
-    ds = xr.Dataset(
-        {
-            "temperature": (["time", "lat", "lon"], temperature),
-        },
-        coords={
-            "time": time,
-            "lat": lat,
-            "lon": lon,
-        },
-        attrs={
-            "title": "Sample temperature data",
-            "description": "Generated sample data for testing",
-        }
-    )
-    
-    return ds
-
-
-def dataset_info(dataset: xr.Dataset) -> Dict[str, Any]:
-    """
-    Get basic information about an xarray Dataset.
-    
-    Args:
-        dataset: xarray Dataset to analyze
-        
-    Returns:
-        Dictionary containing dataset information.
-    """
-    return {
-        "dims": dict(dataset.sizes),
-        "coords": list(dataset.coords.keys()),
-        "data_vars": list(dataset.data_vars.keys()),
-        "attrs": dataset.attrs,
-        "size": dataset.nbytes,
-    }
-
-
-def save_dataset_to_netcdf(dataset: xr.Dataset, filename: str) -> bool:
-    """
-    Save xarray Dataset to NetCDF file.
-    
-    Args:
-        dataset: xarray Dataset to save
-        filename: Output filename
-        
-    Returns:
-        True if successful, False otherwise.
-    """
-    try:
-        dataset.to_netcdf(filename)
-        return True
-    except Exception as e:
-        print(f"Error saving dataset to NetCDF: {e}")
-        return False
-
-
-def load_dataset_from_netcdf(filename: str) -> Optional[xr.Dataset]:
-    """
-    Load xarray Dataset from NetCDF file.
-    
-    Args:
-        filename: Input filename
-        
-    Returns:
-        xarray Dataset if successful, None otherwise.
-    """
-    try:
-        return xr.open_dataset(filename)
-    except Exception as e:
-        print(f"Error loading dataset from NetCDF: {e}")
-        return None
-
-
 def clean_dataset(ds: xr.Dataset) -> xr.Dataset:
-    """Return a copy with unused coords dropped and encodings cleared."""
-    used_dims = set()
+    """Return a copy with unused coordinates dropped and encodings cleared."""
+    used_dims: set[str] = set()
     for var in ds.data_vars:
         used_dims.update(ds[var].dims)
     drop_coords = [c for c in ds.coords if set(ds[c].dims).isdisjoint(used_dims)]
@@ -166,22 +77,7 @@ def upload_in_intervals(
     interval: np.timedelta64,
     mode_first: str = "w",
 ) -> None:
-    """Upload *ds* to *repo* in chunks along *dim* with given *interval*.
-
-    Parameters
-    ----------
-    repo: icechunk.Repository
-        Target repository.
-    ds: xr.Dataset
-        Dataset slice to upload.
-    dim: str
-        Dimension along which to chunk the data.
-    interval: numpy.timedelta64
-        Size of each chunk along *dim*.
-    mode_first: str, optional
-        Mode for the first chunk. Use ``"w"`` when creating a new repository
-        and ``"a"`` when adding new variables to an existing dimension.
-    """
+    """Upload *ds* to *repo* in chunks along *dim* with given *interval*."""
     start = ds[dim].values[0]
     end = ds[dim].values[-1]
     first_end = start + interval
@@ -224,4 +120,3 @@ def ensure_null_codec() -> None:
         register_codec(_NullCodec())
     except Exception:
         pass
-

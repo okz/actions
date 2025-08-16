@@ -6,9 +6,8 @@ import icechunk
 import icechunk.xarray as icx
 import pytest
 
-from actions_package.azure_storage import AzuriteStorageClient
-from actions_package.mock_data_generator import generate_mock_data
-from actions_package.xarray_utils import (
+from ice_stream.mock_data_generator import generate_mock_data
+from ice_stream.blocks import (
     select_minimal_variables,
     select_waveform_variables,
     select_high_freq_variables,
@@ -18,7 +17,13 @@ from actions_package.xarray_utils import (
     ensure_null_codec,
 )
 
-from tests.helpers import get_test_data_path, open_test_dataset, setup_icechunk_repo, total_sent_bytes
+from tests.helpers import (
+    AzuriteStorageClient,
+    get_test_data_path,
+    open_test_dataset,
+    setup_icechunk_repo,
+    total_sent_bytes,
+)
 
 
 def test_azurite_basic_operations():
