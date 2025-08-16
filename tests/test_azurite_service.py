@@ -5,6 +5,7 @@ import numpy as np
 import icechunk
 import icechunk.xarray as icx
 import pytest
+import zarr
 
 from ice_stream.mock_data_generator import generate_mock_data
 from ice_stream.blocks import (
@@ -233,6 +234,52 @@ def test_azure_icechunk_append_new_variables() -> None:
     final = xr.open_dataset(ro2.store, engine="zarr")
     for v in ds.data_vars:
         assert v in final.data_vars
+
+
+def test_azure_icechunk_append_new_variables_and_timestamps() -> None:
+    """Append remaining variables and timestamps after partial first write."""
+
+    container = "var-append-half-container"
+    prefix = "var-append-half-prefix"
+    repo = setup_icechunk_repo(container, prefix)
+
+    ds = open_test_dataset()
+    fed_vars = ds.attrs.get("fitted_measurements", "").split()
+    half = len(ds["timestamp"]) // 2
+    first_half = ds[fed_vars].isel(timestamp=slice(0, half))
+
+    session = repo.writable_session("main")
+    icx.to_icechunk(first_half, session, mode="w")
+    session.commit("initial partial")
+
+    storage = icechunk.azure_storage(
+        account=os.environ["AZURE_STORAGE_ACCOUNT_NAME"],
+        container=container,
+        prefix=prefix,
+        from_env=True,
+        config={
+            "azure_storage_use_emulator": "true",
+            "azure_allow_http": "true",
+        },
+    )
+    reopened = icechunk.Repository.open(storage)
+
+    second_half = ds.isel(timestamp=slice(half, None))
+    session2 = reopened.writable_session("main")
+    icx.to_icechunk(second_half, session2, mode="a", append_dim="timestamp")
+    session2.commit("append remaining")
+
+    ro = reopened.readonly_session("main")
+    group = zarr.open_group(ro.store, mode="r")
+    assert group["timestamp"].shape[0] == len(ds["timestamp"])
+    for v in ds.data_vars:
+        assert v in group
+    for v in fed_vars:
+        assert group[v].shape[0] == len(ds["timestamp"])
+    extra_var = next(
+        v for v in ds.data_vars if "timestamp" in ds[v].dims and v not in fed_vars
+    )
+    assert group[extra_var].shape[0] == len(ds["timestamp"]) - half
 
 
 def test_azure_repo_size_24h_minimal(tmp_path, artifacts) -> None:
