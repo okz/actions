@@ -371,14 +371,14 @@ MIT License - see LICENSE file for details.
 [!OK] Size of the uploaded data, once all the waveforms/high freq data is uploaded with 4H chunks, 24H single chunk. [Simulated data for a 3GB NetCDF was 1.2GB, check compression settings]
 
 
-[] Create a few random files on the blob path. 
-[] implement fast path finding that can search ${CLADS_BACKUP_UPLOAD_TARGET}/ for all icechunkl projects. 
-[] methods to return incechunk paths that are in the format:
+[OK] Create a few random files on the blob path. 
+[OK] implement fast path finding that can search ${CLADS_BACKUP_UPLOAD_TARGET}/ for all icechunkl projects. 
+[OK] methods to return iccechunk paths that are in the format:
 <instrument>/<project>/inst-<instrument>-prj-<project>-<YYYY-MM-DDtHH-mm-SSz>l1b/
 or 
 <instrument>/<project>/inst-<instrument>-prj-<project>-<YYYY-MM-DDtHH-mm-SSz>l1bmin/
 
-[] Start a Streaming class template using the old one. It's icechunk so remove the unnecessary functions.  In fact ask for variables/properties/methods only, no code. 
+[OK] Start a Streaming class template using the old one. It's icechunk so remove the unnecessary functions.  In fact ask for variables/properties/methods only, no code. 
 
 [] Clean the mock package template evolving to the Streaming class. 
 [] Search these paths should be ordered for YYYY-MM-DDtHH-mm-SS so we open the latest one. 
