@@ -1,3 +1,4 @@
+import os
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -5,6 +6,9 @@ from typing import Optional, List, Union
 from pathlib import Path
 from zarr.storage import ZipStore
 from numcodecs import blosc
+import icechunk
+
+from .xarray_utils import upload_single_chunk
 
 
 def _open_seed_dataset(path: Union[str, Path]) -> xr.Dataset:
@@ -16,6 +20,64 @@ def _open_seed_dataset(path: Union[str, Path]) -> xr.Dataset:
             ds.load()
         return ds
     return xr.open_dataset(p)
+
+
+def build_blob_base_path(ds: xr.Dataset, base: Optional[Union[str, Path]] = None) -> Path:
+    """Return backup base path ``<base>/<instrument>/<project>`` for *ds*.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``instrument`` and ``project`` attributes.
+    base : str or Path, optional
+        Override for ``CLADS_BACKUP_UPLOAD_TARGET`` environment variable.
+    """
+    root = Path(base or os.environ["CLADS_BACKUP_UPLOAD_TARGET"])
+    instrument = ds.attrs.get("instrument", "")
+    project = ds.attrs.get("project", "")
+    return root / instrument / project
+
+
+def generate_ice_chunk_repositories(
+    seed_file: Union[str, Path],
+    count: int = 1,
+    base: Optional[Union[str, Path]] = None,
+) -> List[Path]:
+    """Create *count* icechunk repositories from *seed_file*.
+
+    The repositories are placed under ``<base>/<instrument>/<project>`` where
+    *base* defaults to the ``CLADS_BACKUP_UPLOAD_TARGET`` environment variable.
+    Each repository name follows the pattern ``YYYYMMDD_<gas_id>_<gas_version>``.
+    ``gas_id`` and ``gas_version`` are incremented for each repository so they
+    end up in separate locations.
+    """
+
+    ds_seed = _open_seed_dataset(seed_file)
+    base_gas_id = int(ds_seed.attrs.get("gas_id", 0))
+    base_version = int(ds_seed.attrs.get("gas_version", 0))
+
+    paths: List[Path] = []
+    for i in range(count):
+        ds = ds_seed.copy(deep=True)
+        ds.attrs["gas_id"] = base_gas_id + i
+        ds.attrs["gas_version"] = base_version + i
+        for var in ds.variables:
+            ds[var].encoding.clear()
+
+        repo_base = build_blob_base_path(ds, base)
+        repo_base.mkdir(parents=True, exist_ok=True)
+
+        date = np.datetime_as_string(ds["timestamp"].values[0], unit="D").replace("-", "")
+        repo_name = f"{date}_{ds.attrs['gas_id']}_{ds.attrs['gas_version']}"
+        repo_path = repo_base / repo_name
+
+        storage = icechunk.local_filesystem_storage(str(repo_path))
+        repo = icechunk.Repository.create(storage)
+        upload_single_chunk(repo, ds)
+
+        paths.append(repo_path)
+
+    return paths
 
 
 def generate_mock_data(
