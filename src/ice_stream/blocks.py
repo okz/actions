@@ -62,14 +62,42 @@ def upload_in_intervals(
     dim: str,
     interval: np.timedelta64,
     mode_first: str = "w",
+    encoding: dict[str, dict[str, object]] | None = None,
 ) -> None:
-    """Upload *ds* to *repo* in chunks along *dim* with given *interval*."""
+    """Upload *ds* to *repo* in chunks along *dim* with given *interval*.
+
+    Parameters
+    ----------
+    repo : icechunk.Repository
+        Destination repository.
+    ds : xr.Dataset
+        Dataset to upload.
+    dim : str
+        Dimension along which to chunk and append.
+    interval : np.timedelta64
+        Time window represented by each chunk.
+    mode_first : str, optional
+        Icechunk write mode used for the first chunk, by default "w".
+    encoding : dict[str, dict[str, object]], optional
+        Explicit encoding map passed to :func:`icechunk.xarray.to_icechunk`.
+        If omitted, chunk encodings are inferred from the first interval so
+        that variables (including the coordinate for ``dim``) share a consistent
+        chunk size during subsequent appends.
+    """
+
     start = ds[dim].values[0]
     end = ds[dim].values[-1]
     first_end = start + interval
     first_slice = ds.sel({dim: slice(start, first_end)})
+    if encoding is None:
+        chunk_size = first_slice.sizes[dim]
+        encoding = {}
+        for name in ds.variables:
+            if dim in ds[name].dims:
+                shape = ds[name].shape
+                encoding[name] = {"chunks": (chunk_size,) + shape[1:]}
     session = repo.writable_session("main")
-    icx.to_icechunk(first_slice, session, mode=mode_first)
+    icx.to_icechunk(first_slice, session, mode=mode_first, encoding=encoding)
     session.commit("initial chunk")
 
     current = first_end
@@ -78,7 +106,7 @@ def upload_in_intervals(
         chunk = ds.sel({dim: slice(current, next_t)})
         if chunk.sizes.get(dim, 0) > 0:
             session = repo.writable_session("main")
-            icx.to_icechunk(chunk, session, mode="a", append_dim=dim)
+            icx.to_icechunk(chunk, session, mode="a", append_dim=dim, encoding=encoding)
             session.commit("append chunk")
         current = next_t
 

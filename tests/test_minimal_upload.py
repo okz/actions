@@ -97,7 +97,7 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
     aligned_ts = (total_ts // chunk_size) * chunk_size
     ds_day = ds_day.isel(timestamp=slice(0, aligned_ts))
 
-    encoding = {}
+    encoding = {"timestamp": {"chunks": (chunk_size,)}}
     for v in ds_day.data_vars:
         if "timestamp" in ds_day[v].dims:
             shape = ds_day[v].shape
@@ -136,7 +136,7 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
         chunk = ds_day.isel(timestamp=slice(start, start + chunk_size))
         reopened = icechunk.Repository.open(storage)
         s2 = reopened.writable_session("main")
-        icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp")
+        icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp", encoding=encoding)
         s2.commit("append chunk")
 
     used_sent = max(0, total_sent_bytes() - start_sent)
@@ -146,6 +146,7 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
     read_s = reopened.readonly_session("main")
     stored = xr.open_zarr(read_s.store, consolidated=False)
     assert stored.sizes["timestamp"] == aligned_ts
+    assert stored["timestamp"].encoding.get("chunks")[0] == chunk_size
     for v in stored.data_vars:
         if "timestamp" in stored[v].dims:
             assert stored[v].encoding.get("chunks")[0] == chunk_size
