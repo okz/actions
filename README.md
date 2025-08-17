@@ -343,7 +343,9 @@ or
 [NOK] Investigate if sharding methods would optimize our usecase (NO!)
 [NOK] Investigate if `inline_chunk_threshold_bytes` would help with smaller transfers. NO!.. We have too many variables and the manifest ends up ptoo large
 
-[] revisit chunking 
+[] revisit chunking on minimal data (7MB per day instead of 11MB for timestamped intervals. Still much more than a 1MB daily file)
+[] snapshot clearing at the end of the day. ~3MB Daily reduction, minor increase on bandwidth
+[] snapshot clearing after each upload. x2 Cost on bandwidth
 
 No Chunking 15mins intervals   Chunking 1000samples 
  
@@ -362,6 +364,9 @@ sent_mb: 41.24  (~10mb optimization)
 
 [] define the region we are writing to or use "auto"? 
 
+[] utilize and optimize Splitting manifests, and use manifest rewrites.
+
+[] 
 [] rename the package to 'icestream' 
 [] minimal data should include "signal_strength_dbm", "measurement_validity", "wind_" data  "diagnostics_settings_id
 [] Housekeeping:  timestamp naming should follow the most widely used patterns with
@@ -509,4 +514,14 @@ These variables are omitted from the minimal export profile:
 
 
 
+24H full data oneshot  single upload  100MB store(300MB upload) 
+24H minimal data oneshot  single upload  1.33MB store(4MB upload) 
+24H minimal data 1000sample chunks incremental upload  9MB store (41MB upload) 
+24H minimal data 1000sample chunks, with single chunk manifests, incremental upload  7.5MB store (36MB upload) 
+24H minimal data, 15min timed incremental uploads, single chunk manifests 14MB store (80MB upload) 
+24H minimal data, 15min timed incremental uploads, single manifests 24MB store (104MB upload) 
 
+deleting snapshots and garbage collecting the repo after the upload, reduces the size to a few MB per day for minimal data. 
+
+
+Rechunking is the way.. They are working on it. No insight yet ![#961](https://github.com/earth-mover/icechunk/discussions/961)
