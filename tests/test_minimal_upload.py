@@ -88,7 +88,7 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
     """Upload minimal variables for ~1h in fixed-size chunks, reopening the repo for each append."""
     ds = open_test_dataset()
     ds_min = select_minimal_variables(ds)
-    ds_day = _extend_to_hours(ds_min, hours=1)
+    ds_day = _extend_to_hours(ds_min, hours=24)
     ds_day = clean_dataset(ds_day)
 
     # enforce fixed chunk size along timestamp dimension
@@ -131,12 +131,12 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
     icx.to_icechunk(first_chunk, s, mode="w", encoding=encoding)
     s.commit("initial chunk")
 
+    reopened = icechunk.Repository.open(storage)
     # Subsequent chunks: reopen repo and append each time
     for start in range(chunk_size, aligned_ts, chunk_size):
-        chunk = ds_day.isel(timestamp=slice(start, start + chunk_size))
-        reopened = icechunk.Repository.open(storage)
         s2 = reopened.writable_session("main")
-        icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp", encoding=encoding)
+        chunk = ds_day.isel(timestamp=slice(start, start + chunk_size))
+        icx.to_icechunk(chunk, s2, mode="a-", append_dim="timestamp")
         s2.commit("append chunk")
 
     used_sent = max(0, total_sent_bytes() - start_sent)
