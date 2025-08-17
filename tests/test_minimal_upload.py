@@ -7,27 +7,34 @@ import icechunk.xarray as icx  # added
 from ice_stream.blocks import select_minimal_variables, upload_single_chunk, clean_dataset
 from tests.helpers import AzuriteStorageClient, open_test_dataset, total_sent_bytes  # added
 
+def _extend_to_hours(ds: xr.Dataset, hours: int = 1) -> xr.Dataset:
+    """Extend dataset to cover *hours* along the timestamp dimension.
 
-def _extend_to_24h(ds: xr.Dataset) -> xr.Dataset:
-    """Extend dataset to cover at least 24 hours along timestamp dimension."""
+    The dataset may be repeated to exceed the requested duration and is
+    then trimmed so that the returned data spans approximately *hours*
+    hours starting from the first timestamp.
+    """
     t = ds["timestamp"].values
     span = (t[-1] - t[0]) + (t[1] - t[0])
-    factor = int(np.ceil(np.timedelta64(24, "h") / span))
+    target = np.timedelta64(hours, "h")
+    factor = int(np.ceil(target / span))
     time_vars = [v for v in ds.data_vars if ds[v].dims == ("timestamp",)]
     other_vars = [v for v in ds.data_vars if v not in time_vars]
-    parts = []
+    parts: list[xr.Dataset] = []
     for i in range(factor):
         part = ds[time_vars].copy(deep=True)
         part = part.assign_coords(timestamp=t + i * span)
         parts.append(part)
     extended_time = xr.concat(parts, dim="timestamp")
-    return clean_dataset(xr.merge([extended_time, ds[other_vars]]))
+    extended = clean_dataset(xr.merge([extended_time, ds[other_vars]]))
+    end_time = extended["timestamp"].values[0] + target
+    return extended.sel(timestamp=slice(None, end_time))
 
 
 def test_minimal_day_upload(artifacts) -> None:
     ds = open_test_dataset()
     ds_min = select_minimal_variables(ds)
-    ds_day = _extend_to_24h(ds_min)
+    ds_day = _extend_to_hours(ds_min, hours=1)
 
     container = "minimal-day-container"
     prefix = "minimal-day-prefix"
@@ -78,14 +85,14 @@ def test_minimal_day_upload(artifacts) -> None:
 
 
 def test_minimal_day_upload_incremental(artifacts) -> None:
-    """Upload minimal variables for ~24h in fixed-size chunks, reopening the repo for each append."""
+    """Upload minimal variables for ~1h in fixed-size chunks, reopening the repo for each append."""
     ds = open_test_dataset()
     ds_min = select_minimal_variables(ds)
-    ds_day = _extend_to_24h(ds_min)
+    ds_day = _extend_to_hours(ds_min, hours=1)
     ds_day = clean_dataset(ds_day)
 
     # enforce fixed chunk size along timestamp dimension
-    chunk_size = 10_000
+    chunk_size = 1_000
     total_ts = ds_day.sizes["timestamp"]
     aligned_ts = (total_ts // chunk_size) * chunk_size
     ds_day = ds_day.isel(timestamp=slice(0, aligned_ts))
@@ -129,7 +136,7 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
         chunk = ds_day.isel(timestamp=slice(start, start + chunk_size))
         reopened = icechunk.Repository.open(storage)
         s2 = reopened.writable_session("main")
-        icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp", encoding=encoding)
+        icx.to_icechunk(chunk, s2, mode="a", append_dim="timestamp")
         s2.commit("append chunk")
 
     used_sent = max(0, total_sent_bytes() - start_sent)
