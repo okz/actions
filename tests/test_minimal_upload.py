@@ -34,7 +34,7 @@ def _extend_to_hours(ds: xr.Dataset, hours: int = 1) -> xr.Dataset:
 def test_minimal_day_upload(artifacts) -> None:
     ds = open_test_dataset()
     ds_min = select_minimal_variables(ds)
-    ds_day = _extend_to_hours(ds_min, hours=1)
+    ds_day = _extend_to_hours(ds_min, hours=24)
 
     container = "minimal-day-container"
     prefix = "minimal-day-prefix"
@@ -154,13 +154,17 @@ def test_minimal_day_upload_incremental(artifacts) -> None:
     container_client = client.blob_service_client.get_container_client(container)
     total_bytes = sum(blob.size for blob in container_client.list_blobs(name_starts_with=prefix))
     size_mb = total_bytes / (1024 * 1024)
+
+    # Icechunk reported total chunks storage (fallback to container size)
+    ic_total_bytes = repo.total_chunks_storage()
+    ic_size_mb = ic_total_bytes / (1024 * 1024)
+
     num_timestamps = int(ds_day.sizes.get("timestamp", 0))
     var_names = list(ds_day.data_vars)
     dims_by_var = {v: {d: int(ds_day[v].sizes[d]) for d in ds_day[v].dims} for v in var_names}
     lines = [
-        f"total_bytes: {total_bytes}",
         f"size_mb: {size_mb:.2f}",
-        f"sent_bytes: {used_sent}",
+        f"ic_size_mb: {ic_size_mb:.2f}",
         f"sent_mb: {used_sent/(1024*1024):.2f}",
         f"num_timestamps: {num_timestamps}",
         f"variables: {', '.join(var_names)}",
