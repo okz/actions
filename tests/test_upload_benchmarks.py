@@ -8,12 +8,13 @@ import icechunk
 import icechunk.xarray as icx
 
 from ice_stream.blocks import clean_dataset, select_minimal_variables, upload_single_chunk
+from ice_stream.mock_data_generator import generate_mock_data
 from icechunk import (
     ManifestSplitCondition,
     ManifestSplittingConfig,
     ManifestSplitDimCondition,
 )
-from tests.helpers import AzuriteStorageClient, open_test_dataset, total_sent_bytes
+from tests.helpers import AzuriteStorageClient, total_sent_bytes, get_test_data_path
 
 
 # Duration of dataset used in tests (in hours) and chunk size (in minutes).
@@ -21,20 +22,18 @@ from tests.helpers import AzuriteStorageClient, open_test_dataset, total_sent_by
 TEST_DATA_DURATION_HOURS = int(os.environ.get("TEST_DATA_DURATION_HOURS", 1))
 CHUNK_DURATION = np.timedelta64(int(os.environ.get("TEST_CHUNK_DURATION_MINUTES", 15)), "m")
 
+def _generate_dataset_for_hours(hours: int, minimal: bool, artifacts) -> xr.Dataset:
+    """Generate a mock dataset of approximately the requested duration.
 
-def _limit_to_hours(ds: xr.Dataset, hours: int = TEST_DATA_DURATION_HOURS) -> xr.Dataset:
-    """Limit dataset to the first *hours* along available timestamp dimensions."""
-
-    target = np.timedelta64(hours, "h")
-    start = ds["timestamp"].values[0]
-    end = start + target
-    ts = ds["timestamp"].values
-    end_idx = int(np.searchsorted(ts, end, side="right"))
-    ds = ds.isel(timestamp=slice(0, end_idx))
-    if "high_res_timestamp" in ds.dims:
-        hr_ts = ds["high_res_timestamp"].values
-        hr_end_idx = int(np.searchsorted(hr_ts, end, side="right"))
-        ds = ds.isel(high_res_timestamp=slice(0, hr_end_idx))
+    Uses the project-wide mock data generator to ensure realistic, randomized
+    samples instead of slicing the seed dataset. The generated NetCDF is placed
+    under the test's artifact directory for inspection.
+    """
+    seed = get_test_data_path()
+    out_path = artifacts.path / f"mock_{'min' if minimal else 'full'}_{hours}h.nc"
+    ds = generate_mock_data(seed, out_path, target_duration_hours=float(hours))
+    if minimal:
+        ds = select_minimal_variables(ds)
     return clean_dataset(ds)
 
 
@@ -90,16 +89,33 @@ def _log_stats(
     for v in var_names:
         dims_str = ", ".join(f"{d}={dims_by_var[v][d]}" for d in ds[v].dims)
         lines.append(f"  - {v}: {dims_str}")
+    # New: record data duration and chunk duration per time dimension.
+    durations_hours: dict[str, float] = {}
+    for dim in ("timestamp", "high_res_timestamp"):
+        if dim in ds:
+            arr = ds[dim].values
+            if arr.size >= 2:
+                total = arr[-1] - arr[0]
+                durations_hours[dim] = float(total / np.timedelta64(1, "h"))
+            else:
+                durations_hours[dim] = 0.0
+    if durations_hours:
+        lines.append("data_durations_hours:")
+        for dim, dur_h in durations_hours.items():
+            lines.append(f"  - {dim}: {dur_h:.4f}")
+        # CHUNK_DURATION is the configured time window; log it per present time dim.
+        chunk_minutes = float(CHUNK_DURATION / np.timedelta64(1, "m"))
+        lines.append("chunk_durations_minutes:")
+        for dim in durations_hours.keys():
+            lines.append(f"  - {dim}: {chunk_minutes:.0f}")
     artifacts.save_text(name, "\n".join(lines) + "\n")
     assert total_bytes > 0
 
 
 @pytest.mark.parametrize("minimal", [False, True], ids=["full", "minimal"])
 def test_single_shot_upload(minimal: bool, artifacts) -> None:
-    ds = open_test_dataset()
-    if minimal:
-        ds = select_minimal_variables(ds)
-    ds_hour = _limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS)
+    # Generate dataset with desired duration using the mock generator
+    ds_hour = _generate_dataset_for_hours(TEST_DATA_DURATION_HOURS, minimal, artifacts)
 
     container = f"single-shot-{'min' if minimal else 'full'}-container"
     prefix = "single-shot-prefix"
@@ -113,9 +129,7 @@ def test_single_shot_upload(minimal: bool, artifacts) -> None:
 
 def test_minimal_hour_chunked_upload_incremental(artifacts) -> None:
     """Upload minimal variables in fixed-size chunks, reopening the repo for each append."""
-
-    ds = select_minimal_variables(open_test_dataset())
-    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
+    ds_hour = _generate_dataset_for_hours(TEST_DATA_DURATION_HOURS, minimal=True, artifacts=artifacts)
 
     ts = ds_hour["timestamp"].values
     chunk_size = _chunk_size_from_duration(ts)
@@ -161,9 +175,7 @@ def test_minimal_hour_chunked_upload_incremental(artifacts) -> None:
 
 def test_minimal_hour_chunked_single_manifest_upload_incremental(artifacts) -> None:
     """Upload minimal variables in fixed-size chunks with manifest splitting."""
-
-    ds = select_minimal_variables(open_test_dataset())
-    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
+    ds_hour = _generate_dataset_for_hours(TEST_DATA_DURATION_HOURS, minimal=True, artifacts=artifacts)
 
     ts = ds_hour["timestamp"].values
     chunk_size = _chunk_size_from_duration(ts)
@@ -217,9 +229,7 @@ def test_minimal_hour_chunked_single_manifest_upload_incremental(artifacts) -> N
 
 def test_full_dataset_high_freq_chunked_upload(artifacts) -> None:
     """Upload full dataset including high-frequency variables in chunks."""
-
-    ds = open_test_dataset()
-    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
+    ds_hour = _generate_dataset_for_hours(TEST_DATA_DURATION_HOURS, minimal=False, artifacts=artifacts)
 
     ts = ds_hour["timestamp"].values
     hr_ts = ds_hour["high_res_timestamp"].values
@@ -282,9 +292,7 @@ def test_full_dataset_high_freq_chunked_upload(artifacts) -> None:
 
 def test_minimal_hour_timed_single_manifest_upload_incremental(artifacts) -> None:
     """Upload minimal variables in configurable time increments."""
-
-    ds = select_minimal_variables(open_test_dataset())
-    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
+    ds_hour = _generate_dataset_for_hours(TEST_DATA_DURATION_HOURS, minimal=True, artifacts=artifacts)
 
     container = "minimal-hour-timed-container"
     prefix = "minimal-hour-timed-prefix"
