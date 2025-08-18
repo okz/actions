@@ -119,21 +119,3 @@ def upload_single_chunk(repo: "icechunk.Repository", ds: xr.Dataset, message: st
     session = repo.writable_session("main")
     icx.to_icechunk(ds, session, mode="w")
     session.commit(message)
-
-
-class _NullCodec:
-    codec_id = "null"
-
-    def encode(self, buf):  # type: ignore[override]
-        return buf
-
-    def decode(self, buf, out=None):  # type: ignore[override]
-        return buf
-
-
-def ensure_null_codec() -> None:
-    """Register a no-op codec under the name ``null`` if missing."""
-    try:
-        register_codec(_NullCodec())
-    except Exception:
-        pass
