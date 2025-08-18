@@ -514,14 +514,15 @@ These variables are omitted from the minimal export profile:
 
 
 
-24H full data oneshot  single upload  100MB store(300MB upload) 
+24H full data oneshot  single upload  100MB store (300MB upload) 
 24H minimal data oneshot  single upload  1.33MB store(4MB upload) 
+24H minimal data, 15min timed incremental uploads, default single manifests 24MB store (104MB upload) 
 24H minimal data 1000sample chunks incremental upload  9MB store (41MB upload) 
-24H minimal data 1000sample chunks, with single chunk manifests, incremental upload  7.5MB store (36MB upload) 
-24H minimal data, 15min timed incremental uploads, single chunk manifests 14MB store (80MB upload) 
-24H minimal data, 15min timed incremental uploads, single manifests 24MB store (104MB upload) 
+
+--- don't matter ---
+24H minimal data 1000sample chunks, with single chunk manifests, incremental upload  7.5MB store (36MB upload) (slower reads)
+24H minimal data, 15min timed incremental uploads, single chunk manifests 14MB store (80MB upload) (slower reads)
 
 deleting snapshots and garbage collecting the repo after the upload, reduces the size to a few MB per day for minimal data. 
-
 
 Rechunking is the way.. They are working on it. No insight yet ![#961](https://github.com/earth-mover/icechunk/discussions/961)

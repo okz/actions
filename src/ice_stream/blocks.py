@@ -106,7 +106,7 @@ def upload_in_intervals(
         chunk = ds.sel({dim: slice(current, next_t)})
         if chunk.sizes.get(dim, 0) > 0:
             session = repo.writable_session("main")
-            icx.to_icechunk(chunk, session, mode="a", append_dim=dim, encoding=encoding)
+            icx.to_icechunk(chunk, session, mode="a-", append_dim=dim, encoding=encoding)
             session.commit("append chunk")
         current = next_t
 
