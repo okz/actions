@@ -16,24 +16,35 @@ from icechunk import (
 from tests.helpers import AzuriteStorageClient, open_test_dataset, total_sent_bytes
 
 
-def _extend_to_hours(ds: xr.Dataset, hours: int = 1) -> xr.Dataset:
-    """Extend dataset to cover *hours* along the timestamp dimension."""
+# Duration of dataset used in tests (in hours) and chunk size (in minutes).
+# These can be overridden via the environment to run longer tests.
+TEST_DATA_DURATION_HOURS = int(os.environ.get("TEST_DATA_DURATION_HOURS", 1))
+CHUNK_DURATION = np.timedelta64(int(os.environ.get("TEST_CHUNK_DURATION_MINUTES", 15)), "m")
 
-    t = ds["timestamp"].values
-    span = (t[-1] - t[0]) + (t[1] - t[0])
+
+def _limit_to_hours(ds: xr.Dataset, hours: int = TEST_DATA_DURATION_HOURS) -> xr.Dataset:
+    """Limit dataset to the first *hours* along available timestamp dimensions."""
+
     target = np.timedelta64(hours, "h")
-    factor = int(np.ceil(target / span))
-    time_vars = [v for v in ds.data_vars if ds[v].dims == ("timestamp",)]
-    other_vars = [v for v in ds.data_vars if v not in time_vars]
-    parts: list[xr.Dataset] = []
-    for i in range(factor):
-        part = ds[time_vars].copy(deep=True)
-        part = part.assign_coords(timestamp=t + i * span)
-        parts.append(part)
-    extended_time = xr.concat(parts, dim="timestamp")
-    extended = clean_dataset(xr.merge([extended_time, ds[other_vars]]))
-    end_time = extended["timestamp"].values[0] + target
-    return extended.sel(timestamp=slice(None, end_time))
+    start = ds["timestamp"].values[0]
+    end = start + target
+    ts = ds["timestamp"].values
+    end_idx = int(np.searchsorted(ts, end, side="right"))
+    ds = ds.isel(timestamp=slice(0, end_idx))
+    if "high_res_timestamp" in ds.dims:
+        hr_ts = ds["high_res_timestamp"].values
+        hr_end_idx = int(np.searchsorted(hr_ts, end, side="right"))
+        ds = ds.isel(high_res_timestamp=slice(0, hr_end_idx))
+    return clean_dataset(ds)
+
+
+def _chunk_size_from_duration(ts: np.ndarray, duration: np.timedelta64 = CHUNK_DURATION) -> int:
+    """Return number of samples corresponding to *duration* for a timestamp array."""
+
+    if ts.size < 2:
+        return ts.size
+    step = ts[1] - ts[0]
+    return int(np.ceil(duration / step))
 
 
 def _setup_repo(container: str, prefix: str, repo_config: icechunk.RepositoryConfig | None = None):
@@ -88,7 +99,7 @@ def test_single_shot_upload(minimal: bool, artifacts) -> None:
     ds = open_test_dataset()
     if minimal:
         ds = select_minimal_variables(ds)
-    ds_hour = _extend_to_hours(ds, hours=24)
+    ds_hour = _limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS)
 
     container = f"single-shot-{'min' if minimal else 'full'}-container"
     prefix = "single-shot-prefix"
@@ -104,9 +115,10 @@ def test_minimal_hour_chunked_upload_incremental(artifacts) -> None:
     """Upload minimal variables in fixed-size chunks, reopening the repo for each append."""
 
     ds = select_minimal_variables(open_test_dataset())
-    ds_hour = clean_dataset(_extend_to_hours(ds, hours=24))
+    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
 
-    chunk_size = 1_000
+    ts = ds_hour["timestamp"].values
+    chunk_size = _chunk_size_from_duration(ts)
     total_ts = ds_hour.sizes["timestamp"]
     aligned_ts = (total_ts // chunk_size) * chunk_size
     ds_hour = ds_hour.isel(timestamp=slice(0, aligned_ts))
@@ -151,9 +163,10 @@ def test_minimal_hour_chunked_single_manifest_upload_incremental(artifacts) -> N
     """Upload minimal variables in fixed-size chunks with manifest splitting."""
 
     ds = select_minimal_variables(open_test_dataset())
-    ds_hour = clean_dataset(_extend_to_hours(ds, hours=24))
+    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
 
-    chunk_size = 1_000
+    ts = ds_hour["timestamp"].values
+    chunk_size = _chunk_size_from_duration(ts)
     total_ts = ds_hour.sizes["timestamp"]
     aligned_ts = (total_ts // chunk_size) * chunk_size
     ds_hour = ds_hour.isel(timestamp=slice(0, aligned_ts))
@@ -202,11 +215,76 @@ def test_minimal_hour_chunked_single_manifest_upload_incremental(artifacts) -> N
             assert stored[v].encoding.get("chunks")[0] == chunk_size
 
 
+def test_full_dataset_high_freq_chunked_upload(artifacts) -> None:
+    """Upload full dataset including high-frequency variables in chunks."""
+
+    ds = open_test_dataset()
+    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
+
+    ts = ds_hour["timestamp"].values
+    hr_ts = ds_hour["high_res_timestamp"].values
+    chunk_size = _chunk_size_from_duration(ts)
+    hr_chunk_size = _chunk_size_from_duration(hr_ts)
+
+    total_ts = (ds_hour.sizes["timestamp"] // chunk_size) * chunk_size
+    total_hr = (ds_hour.sizes["high_res_timestamp"] // hr_chunk_size) * hr_chunk_size
+    ds_hour = ds_hour.isel(timestamp=slice(0, total_ts), high_res_timestamp=slice(0, total_hr))
+
+    encoding = {
+        "timestamp": {"chunks": (chunk_size,)},
+        "high_res_timestamp": {"chunks": (hr_chunk_size,)},
+    }
+    for v in ds_hour.data_vars:
+        dims = ds_hour[v].dims
+        shape = ds_hour[v].shape
+        if "timestamp" in dims and 0 not in shape:
+            encoding[v] = {"chunks": (chunk_size,) + shape[1:]}
+        if "high_res_timestamp" in dims and 0 not in shape:
+            encoding[v] = {"chunks": (hr_chunk_size,) + shape[1:]}
+
+    container = "full-highfreq-incremental-container"
+    prefix = "full-highfreq-incremental-prefix"
+    repo, client, storage = _setup_repo(container, prefix)
+
+    start_sent = total_sent_bytes()
+
+    first_chunk = ds_hour.isel(timestamp=slice(0, chunk_size), high_res_timestamp=slice(0, hr_chunk_size))
+    s = repo.writable_session("main")
+    icx.to_icechunk(first_chunk, s, mode="w", encoding=encoding)
+    s.commit("initial chunk")
+
+    reopened = icechunk.Repository.open(storage)
+    num_chunks = max(total_ts // chunk_size, total_hr // hr_chunk_size)
+    for i in range(1, num_chunks):
+        ts_start = i * chunk_size
+        hr_start = i * hr_chunk_size
+        s2 = reopened.writable_session("main")
+        chunk_low = ds_hour.isel(timestamp=slice(ts_start, ts_start + chunk_size))
+        if chunk_low.sizes.get("timestamp", 0) > 0:
+            icx.to_icechunk(chunk_low, s2, mode="a-", append_dim="timestamp")
+        chunk_high = ds_hour.isel(high_res_timestamp=slice(hr_start, hr_start + hr_chunk_size))
+        if chunk_high.sizes.get("high_res_timestamp", 0) > 0:
+            icx.to_icechunk(chunk_high, s2, mode="a-", append_dim="high_res_timestamp")
+        s2.commit("append chunk")
+
+    _log_stats(ds_hour, artifacts, client, container, prefix, start_sent, repo, name="blob_size_full_highfreq.txt")
+
+    reopened = icechunk.Repository.open(storage)
+    read_s = reopened.readonly_session("main")
+    stored = xr.open_zarr(read_s.store, consolidated=False)
+    assert stored.sizes["timestamp"] == total_ts
+    assert stored.sizes["high_res_timestamp"] == total_hr
+    # ensure high-frequency variables were stored
+    for v in ["bearing", "windx", "sonictemp"]:
+        if v in stored:
+            assert v in stored.data_vars
+
+
 def test_minimal_hour_timed_single_manifest_upload_incremental(artifacts) -> None:
-    """Upload minimal variables in 15-minute increments."""
+    """Upload minimal variables in configurable time increments."""
 
     ds = select_minimal_variables(open_test_dataset())
-    ds_hour = clean_dataset(_extend_to_hours(ds, hours=24))
+    ds_hour = clean_dataset(_limit_to_hours(ds, hours=TEST_DATA_DURATION_HOURS))
 
     container = "minimal-hour-timed-container"
     prefix = "minimal-hour-timed-prefix"
@@ -215,7 +293,7 @@ def test_minimal_hour_timed_single_manifest_upload_incremental(artifacts) -> Non
     start_sent = total_sent_bytes()
 
     ts = ds_hour["timestamp"].values
-    step = np.timedelta64(15, "m")
+    step = CHUNK_DURATION
     t0 = ts[0]
     t_last = ts[-1]
 
@@ -225,7 +303,7 @@ def test_minimal_hour_timed_single_manifest_upload_incremental(artifacts) -> Non
 
     s = repo.writable_session("main")
     icx.to_icechunk(first_chunk, s, mode="w")
-    s.commit("initial 15-minute window")
+    s.commit("initial window")
 
     reopened = icechunk.Repository.open(storage)
     cur_start = first_end
@@ -239,7 +317,7 @@ def test_minimal_hour_timed_single_manifest_upload_incremental(artifacts) -> Non
             chunk = ds_hour.isel(timestamp=slice(start_idx, end_idx))
             s2 = reopened.writable_session("main")
             icx.to_icechunk(chunk, s2, mode="a-", append_dim="timestamp")
-            s2.commit("append 15-minute window")
+            s2.commit("append window")
         cur_start = cur_end
 
     _log_stats(ds_hour, artifacts, client, container, prefix, start_sent, repo, name="blob_size_incremental.txt")
