@@ -269,10 +269,17 @@ def test_full_dataset_high_freq_chunked_upload(artifacts) -> None:
         ts_start = i * chunk_size
         hr_start = i * hr_chunk_size
         s2 = reopened.writable_session("main")
-        chunk_low = ds_hour.isel(timestamp=slice(ts_start, ts_start + chunk_size))
+        # Only include variables that depend on the low-frequency timestamp
+        chunk_low = ds_hour.isel(timestamp=slice(ts_start, ts_start + chunk_size)).drop_dims(
+            "high_res_timestamp", errors="ignore"
+        )
         if chunk_low.sizes.get("timestamp", 0) > 0:
             icx.to_icechunk(chunk_low, s2, mode="a-", append_dim="timestamp")
-        chunk_high = ds_hour.isel(high_res_timestamp=slice(hr_start, hr_start + hr_chunk_size))
+        # Likewise, isolate high-frequency variables when appending along
+        # the high_res_timestamp dimension
+        chunk_high = ds_hour.isel(high_res_timestamp=slice(hr_start, hr_start + hr_chunk_size)).drop_dims(
+            "timestamp", errors="ignore"
+        )
         if chunk_high.sizes.get("high_res_timestamp", 0) > 0:
             icx.to_icechunk(chunk_high, s2, mode="a-", append_dim="high_res_timestamp")
         s2.commit("append chunk")
