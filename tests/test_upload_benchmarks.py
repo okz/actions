@@ -21,6 +21,10 @@ from tests.helpers import AzuriteStorageClient, total_sent_bytes, get_test_data_
 # These can be overridden via the environment to run longer tests.
 TEST_DATA_DURATION_HOURS = int(os.environ.get("TEST_DATA_DURATION_HOURS", 1))
 CHUNK_DURATION = np.timedelta64(int(os.environ.get("TEST_CHUNK_DURATION_MINUTES", 15)), "m")
+COMPRESSOR = {
+    "name": "blosc",
+    "configuration": {"cname": "zstd", "clevel": 3},
+}
 
 def _generate_dataset_for_hours(hours: int, minimal: bool, artifacts) -> xr.Dataset:
     """Generate a mock dataset of approximately the requested duration.
@@ -34,7 +38,11 @@ def _generate_dataset_for_hours(hours: int, minimal: bool, artifacts) -> xr.Data
     ds = generate_mock_data(seed, out_path, target_duration_hours=float(hours))
     if minimal:
         ds = select_minimal_variables(ds)
-    return clean_dataset(ds)
+    ds = clean_dataset(ds)
+    for name in ds.variables:
+        if ds[name].dtype.kind not in {"O", "S"}:
+            ds[name].encoding["compressors"] = [COMPRESSOR]
+    return ds
 
 
 def _chunk_size_from_duration(ts: np.ndarray, duration: np.timedelta64 = CHUNK_DURATION) -> int:
@@ -137,11 +145,11 @@ def test_minimal_hour_chunked_upload_incremental(artifacts) -> None:
     aligned_ts = (total_ts // chunk_size) * chunk_size
     ds_hour = ds_hour.isel(timestamp=slice(0, aligned_ts))
 
-    encoding = {"timestamp": {"chunks": (chunk_size,)}}
+    encoding = {"timestamp": {"chunks": (chunk_size,), "compressors": [COMPRESSOR]}}
     for v in ds_hour.data_vars:
         if "timestamp" in ds_hour[v].dims:
             shape = ds_hour[v].shape
-            encoding[v] = {"chunks": (chunk_size,) + shape[1:]}
+            encoding[v] = {"chunks": (chunk_size,) + shape[1:], "compressors": [COMPRESSOR]}
 
     container = "minimal-hour-incremental-container"
     prefix = "minimal-hour-incremental-prefix"
@@ -183,11 +191,11 @@ def test_minimal_hour_chunked_single_manifest_upload_incremental(artifacts) -> N
     aligned_ts = (total_ts // chunk_size) * chunk_size
     ds_hour = ds_hour.isel(timestamp=slice(0, aligned_ts))
 
-    encoding = {"timestamp": {"chunks": (chunk_size,)}}
+    encoding = {"timestamp": {"chunks": (chunk_size,), "compressors": [COMPRESSOR]}}
     for v in ds_hour.data_vars:
         if "timestamp" in ds_hour[v].dims:
             shape = ds_hour[v].shape
-            encoding[v] = {"chunks": (chunk_size,) + shape[1:]}
+            encoding[v] = {"chunks": (chunk_size,) + shape[1:], "compressors": [COMPRESSOR]}
 
     split_config = ManifestSplittingConfig.from_dict(
         {ManifestSplitCondition.AnyArray(): {ManifestSplitDimCondition.DimensionName("timestamp"): 1}}
@@ -241,16 +249,16 @@ def test_full_dataset_high_freq_chunked_upload(artifacts) -> None:
     ds_hour = ds_hour.isel(timestamp=slice(0, total_ts), high_res_timestamp=slice(0, total_hr))
 
     encoding = {
-        "timestamp": {"chunks": (chunk_size,)},
-        "high_res_timestamp": {"chunks": (hr_chunk_size,)},
+        "timestamp": {"chunks": (chunk_size,), "compressors": [COMPRESSOR]},
+        "high_res_timestamp": {"chunks": (hr_chunk_size,), "compressors": [COMPRESSOR]},
     }
     for v in ds_hour.data_vars:
         dims = ds_hour[v].dims
         shape = ds_hour[v].shape
         if "timestamp" in dims and 0 not in shape:
-            encoding[v] = {"chunks": (chunk_size,) + shape[1:]}
+            encoding[v] = {"chunks": (chunk_size,) + shape[1:], "compressors": [COMPRESSOR]}
         if "high_res_timestamp" in dims and 0 not in shape:
-            encoding[v] = {"chunks": (hr_chunk_size,) + shape[1:]}
+            encoding[v] = {"chunks": (hr_chunk_size,) + shape[1:], "compressors": [COMPRESSOR]}
 
     container = "full-highfreq-incremental-container"
     prefix = "full-highfreq-incremental-prefix"
