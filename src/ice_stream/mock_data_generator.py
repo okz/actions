@@ -5,10 +5,16 @@ import pandas as pd
 from typing import Optional, List, Union
 from pathlib import Path
 from zarr.storage import ZipStore
-from numcodecs import blosc
 import icechunk
 
 from .blocks import upload_single_chunk
+
+
+# Compressor spec used for generated mock data and icechunk uploads
+DEFAULT_COMPRESSOR = {
+    "name": "blosc",
+    "configuration": {"cname": "zstd", "clevel": 3},
+}
 
 
 def _open_seed_dataset(path: Union[str, Path]) -> xr.Dataset:
@@ -61,6 +67,8 @@ def generate_ice_chunk_repositories(
         ds = ds_seed.copy(deep=True)
         for var in ds.variables:
             ds[var].encoding.clear()
+            if ds[var].dtype.kind not in {"O", "S"}:
+                ds[var].encoding["compressors"] = [DEFAULT_COMPRESSOR]
 
         repo_base = build_blob_base_path(ds, base)
         repo_base.mkdir(parents=True, exist_ok=True)
@@ -231,7 +239,7 @@ def generate_mock_data(
             arr = xr.DataArray(
                 replicated_data, dims=var_data.dims, attrs=var_data.attrs
             )
-            arr.encoding = {"compressors": [{"name": "null"}]}
+            arr.encoding["compressors"] = [DEFAULT_COMPRESSOR]
             new_data_vars[var_name] = arr
         elif 'high_res_timestamp' in var_data.dims:
             replicated_data = np.tile(
@@ -244,11 +252,11 @@ def generate_mock_data(
             arr = xr.DataArray(
                 replicated_data, dims=var_data.dims, attrs=var_data.attrs
             )
-            arr.encoding = {"compressors": [{"name": "null"}]}
+            arr.encoding["compressors"] = [DEFAULT_COMPRESSOR]
             new_data_vars[var_name] = arr
         else:
             arr = var_data.copy()
-            arr.encoding = {"compressors": [{"name": "null"}]}
+            arr.encoding["compressors"] = [DEFAULT_COMPRESSOR]
             new_data_vars[var_name] = arr
     
     # Handle retro dimension expansion if requested
@@ -282,9 +290,12 @@ def generate_mock_data(
                 new_retro_data = np.take(existing_data, indices, axis=retro_axis)
 
                 extended_data = np.concatenate([existing_data, new_retro_data], axis=retro_axis)
-                new_data_vars[var_name] = xr.DataArray(
+                arr = xr.DataArray(
                     extended_data, dims=var_data.dims, attrs=var_data.attrs
                 )
+                if arr.dtype.kind not in {"O", "S"}:
+                    arr.encoding["compressors"] = [DEFAULT_COMPRESSOR]
+                new_data_vars[var_name] = arr
     
     # Create the new dataset
     ds_mock = xr.Dataset(
@@ -299,7 +310,11 @@ def generate_mock_data(
     if additional_retro_ids:
         ds_mock.attrs['mock_additional_retro_ids'] = ','.join(map(str, additional_retro_ids))
     
-    # Save the dataset
-    ds_mock.to_netcdf(output_file)
+    # Save the dataset with netCDF compression
+    nc_encoding: dict[str, dict[str, int | bool]] = {}
+    for name, var in ds_mock.variables.items():
+        if var.dtype.kind not in {"O", "S"}:
+            nc_encoding[name] = {"zlib": True, "complevel": 3}
+    ds_mock.to_netcdf(output_file, encoding=nc_encoding)
     
     return ds_mock
