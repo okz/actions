@@ -100,13 +100,16 @@ def upload_in_intervals(
     icx.to_icechunk(first_slice, session, mode=mode_first, encoding=encoding)
     session.commit("initial chunk")
 
+    # Subsequent appends should not pass encodings for existing variables; xarray
+    # will raise an error if encoding is specified for variables already written
+    # to the store. Therefore, limit explicit encoding to the first chunk.
     current = first_end
     while current < end:
         next_t = current + interval
         chunk = ds.sel({dim: slice(current, next_t)})
         if chunk.sizes.get(dim, 0) > 0:
             session = repo.writable_session("main")
-            icx.to_icechunk(chunk, session, mode="a-", append_dim=dim, encoding=encoding)
+            icx.to_icechunk(chunk, session, mode="a-", append_dim=dim)
             session.commit("append chunk")
         current = next_t
 
