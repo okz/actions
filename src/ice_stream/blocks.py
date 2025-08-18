@@ -95,7 +95,12 @@ def upload_in_intervals(
         for name in ds.variables:
             if dim in ds[name].dims:
                 shape = ds[name].shape
-                encoding[name] = {"chunks": (chunk_size,) + shape[1:]}
+                enc: dict[str, object] = {"chunks": (chunk_size,) + shape[1:]}
+                # propagate compressor from the dataset if present
+                comp = ds[name].encoding.get("compressors")
+                if comp is not None:
+                    enc["compressors"] = comp
+                encoding[name] = enc
     session = repo.writable_session("main")
     icx.to_icechunk(first_slice, session, mode=mode_first, encoding=encoding)
     session.commit("initial chunk")
@@ -117,5 +122,11 @@ def upload_in_intervals(
 def upload_single_chunk(repo: "icechunk.Repository", ds: xr.Dataset, message: str = "single chunk") -> None:
     """Upload the entire dataset to the repository in one commit."""
     session = repo.writable_session("main")
-    icx.to_icechunk(ds, session, mode="w")
+    # Build encoding from dataset encodings (e.g., compressors) so arrays are compressed.
+    enc: dict[str, dict[str, object]] = {}
+    for name in ds.variables:
+        comp = ds[name].encoding.get("compressors")
+        if comp is not None:
+            enc[name] = {"compressors": comp}
+    icx.to_icechunk(ds, session, mode="w", encoding=enc)
     session.commit(message)

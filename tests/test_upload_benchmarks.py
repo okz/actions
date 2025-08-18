@@ -19,8 +19,8 @@ from tests.helpers import AzuriteStorageClient, total_sent_bytes, get_test_data_
 
 # Duration of dataset used in tests (in hours) and chunk size (in minutes).
 # These can be overridden via the environment to run longer tests.
-TEST_DATA_DURATION_HOURS = int(os.environ.get("TEST_DATA_DURATION_HOURS", 1))
-CHUNK_DURATION = np.timedelta64(int(os.environ.get("TEST_CHUNK_DURATION_MINUTES", 15)), "m")
+TEST_DATA_DURATION_HOURS = int(os.environ.get("TEST_DATA_DURATION_HOURS", 24))
+CHUNK_DURATION = np.timedelta64(int(os.environ.get("TEST_CHUNK_DURATION_MINUTES", 4 * 60)), "m")
 COMPRESSOR = {
     "name": "blosc",
     "configuration": {"cname": "zstd", "clevel": 3},
@@ -131,6 +131,18 @@ def test_single_shot_upload(minimal: bool, artifacts) -> None:
 
     start_sent = total_sent_bytes()
     upload_single_chunk(repo, ds_hour)
+
+    # Verify data is actually compressed in the store
+    read_s = repo.readonly_session("main")
+    stored = xr.open_zarr(read_s.store, consolidated=False)
+    for v in stored.data_vars:
+        # skip object/string variables
+        if getattr(stored[v].dtype, "kind", None) in {"O", "S"}:
+            continue
+        compressors = stored[v].encoding.get("compressors") or stored[v].encoding.get("codecs")
+        assert compressors is not None and any(
+            isinstance(c, dict) and c.get("name") == "blosc" for c in compressors
+        ), f"Variable {v} is not compressed as expected"
 
     _log_stats(ds_hour, artifacts, client, container, prefix, start_sent, name=f"blob_size_{'min' if minimal else 'full'}.txt")
 
@@ -325,7 +337,13 @@ def test_minimal_hour_timed_single_manifest_upload_incremental(artifacts) -> Non
     first_chunk = ds_hour.isel(timestamp=slice(0, first_end_idx))
 
     s = repo.writable_session("main")
-    icx.to_icechunk(first_chunk, s, mode="w")
+    # Ensure compression is applied on first write by passing encoding.
+    encoding = {}
+    for name in first_chunk.variables:
+        dtype = getattr(first_chunk[name].dtype, "kind", None)
+        if dtype not in {"O", "S"}:
+            encoding[name] = {"compressors": [COMPRESSOR]}
+    icx.to_icechunk(first_chunk, s, mode="w", encoding=encoding)
     s.commit("initial window")
 
     reopened = icechunk.Repository.open(storage)

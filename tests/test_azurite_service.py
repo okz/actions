@@ -15,7 +15,6 @@ from ice_stream.blocks import (
     upload_in_intervals,
     upload_single_chunk,
     clean_dataset,
-    ensure_null_codec,
 )
 
 from tests.helpers import (
@@ -362,7 +361,6 @@ def test_azure_repo_append_waveform_highfreq(tmp_path, artifacts) -> None:
 
     ds_wave = select_waveform_variables(ds_full, ds_min.data_vars)
     ds_wave = ds_wave.drop_vars("waveforms_wavenumbers", errors="ignore")
-    ensure_null_codec()
     wave_session = repo_chunk.writable_session("main")
     icx.to_icechunk(ds_wave, wave_session, mode="a")
     wave_session.commit("append waveforms")
